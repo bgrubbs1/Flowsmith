@@ -17,7 +17,7 @@ if (params.has('emulate')) {
   device.stereoEnabled = false;
   device.position.set(0, 1.2, 0);
   // Look down at the table like a seated player.
-  const look = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.62);
+  const look = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), params.has('director') ? -0.85 : -0.62);
   device.quaternion.set(look.x, look.y, look.z, look.w);
   window.__xrdevice = device;
 }
@@ -40,6 +40,7 @@ camera.lookAt(0, 0.82, -0.32);
 const env = new Environment(scene, renderer);
 const sound = new Sound();
 const app = new App(scene, sound);
+app.anchor.scale.setScalar(1.25);
 const handViz = new HandViz(scene);
 const hands = new HandInput();
 window.flowsmith = app; // handy for tests and scripted capture
@@ -209,3 +210,4 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
