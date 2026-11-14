@@ -13,7 +13,8 @@ export function bakedTexture(name, { srgb = true, repeat = [1, 1] } = {}) {
   if (texCache.has(key)) return texCache.get(key);
   const tex = loader.load(base() + 'assets/textures/' + name + '.jpg');
   tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  // Mirrored repeat: the baked textures are not tileable, and mirroring hides the seams.
+  tex.wrapS = tex.wrapT = THREE.MirroredRepeatWrapping;
   tex.repeat.set(repeat[0], repeat[1]);
   tex.anisotropy = 4;
   texCache.set(key, tex);

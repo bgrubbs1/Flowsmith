@@ -104,7 +104,8 @@ export class WaterView {
         const s = ((i / 4 + this.t * 2) % 1);
         put(a.x + (ex - a.x) * s, PIPE_Y, a.z + (ez - a.z) * s);
       }
-      const v0 = 0.13 + 0.1 * strength;
+      const quiet = this.quietAt && Math.hypot(ex - this.quietAt.x, ez - this.quietAt.z) < T * 0.75;
+      const v0 = (0.13 + 0.1 * strength) * (quiet ? 0.22 : 1);
       // Where a mid-sized drop lands: y(t) = PIPE_Y + 0.03 t - 0.09 t^2 reaches 0 at t_land.
       const tLand = (0.03 + Math.sqrt(0.0009 + 0.36 * PIPE_Y)) / 0.18;
       const reach = v0 * 0.45 * tLand;
@@ -130,6 +131,7 @@ export class WaterView {
         put(px, py, pz, size);
       }
       // Puddle under the splash; it grows while the leak runs.
+      if (quiet) continue;
       let pud = this.puddles[pi];
       if (!pud) { pud = new THREE.Mesh(this.puddleGeo, this.puddleMat); pud.name = 'leak-puddle'; this.puddleParent.add(pud); this.puddles.push(pud); pud.userData.s = 0; }
       pud.visible = true; pud.position.set(lx, 0.0035, lz);

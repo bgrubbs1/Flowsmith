@@ -233,7 +233,7 @@ export class BoardView {
     const st = this.st;
     const g = new THREE.Group();
     const c = this.cellCenter(Math.floor(i / st.cols), i % st.cols);
-    g.position.set(c.x + 0.012, 0.080, c.z + 0.008);
+    g.position.set(c.x + 0.012, 0.090, c.z + 0.008); // high enough that the pill under the dial clears the mill wheel
     const back = new THREE.Mesh(new THREE.CircleGeometry(0.019, 28), new THREE.MeshBasicMaterial({ color: 0xfff8ec }));
     g.add(back);
     const rim = new THREE.Mesh(new THREE.RingGeometry(0.019, 0.021, 28), new THREE.MeshBasicMaterial({ color: COLORS.copper }));
@@ -255,13 +255,14 @@ export class BoardView {
     needle.geometry.translate(0.0075, 0, 0);
     needle.position.z = 0.0009;
     g.add(needle);
-    // Status pill sits on the lower half of the dial face, so it moves with the gauge and never floats into lamps.
-    const label = new CanvasPanel(0.03, 0.0085, 512);
-    label.mesh.position.set(0, -0.0108, 0.0012);
+    // Status pill hangs just under the dial rim, so it moves with the gauge and never floats into lamps.
+    const label = new CanvasPanel(0.056, 0.0125, 640);
+    label.mesh.position.set(0, -0.0285, 0.0012);
+    label.material.depthTest = false; label.mesh.renderOrder = 4; // always readable, even past the mill wheel
     g.add(label.mesh);
     // A short post: the gauge rides above the mill on it rather than spearing the hut roof.
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.016, 6), mat('copper'));
-    stem.position.set(0, -0.028, -0.003);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.022, 6), mat('copper'));
+    stem.position.set(0, -0.040, -0.003);
     g.add(stem);
     this.content.add(g);
     return { group: g, needle, label, frac: 0 };
@@ -284,6 +285,8 @@ export class BoardView {
 
   setGhost(type, fromLocal, toLocal, mode) {
     if (this.ghost) { this.content.remove(this.ghost.group); this.ghost = null; }
+    // While a lesson ghost shows where a piece goes, the leak there only dribbles, so it never hides the ghost.
+    this.water.quietAt = type && mode !== 'valve' ? toLocal.clone() : null;
     if (!type) return;
     const b = buildPiece(type, {});
     b.group.traverse((m) => {
@@ -407,12 +410,12 @@ export class BoardView {
     if (this.waveT >= 0 && this.tiles) {
       // Win wave: a warm band of light rolls out across the slabs from the spring (Tetris Effect style).
       this.waveT += dt;
-      const cols = this.tileCols, n = this.tileBase.length, rows = n / cols, front = this.waveT * 7, col = this.v2 || (this.v2 = new THREE.Color());
+      const cols = this.tileCols, n = this.tileBase.length, rows = n / cols, front = this.waveT * 4, col = this.v2 || (this.v2 = new THREE.Color());
       for (let i = 0; i < n; i++) {
         const d = Math.hypot(Math.floor(i / cols) - this.waveFrom[0], (i % cols) - this.waveFrom[1]);
-        const k = Math.exp(-((front - d) ** 2) * 1.1);
-        col.copy(this.tileBase[i]).multiplyScalar(1 + 0.9 * k);
-        col.r += 0.45 * k; col.g += 0.3 * k; col.b += 0.08 * k;
+        const k = Math.exp(-((front - d) ** 2) * 0.45);
+        col.copy(this.tileBase[i]).multiplyScalar(1 + 2.2 * k);
+        col.r += 1.4 * k; col.g += 0.95 * k; col.b += 0.3 * k;
         this.tiles.setColorAt(i, col);
       }
       if (front > Math.hypot(rows, cols) + 3) { for (let i = 0; i < n; i++) this.tiles.setColorAt(i, this.tileBase[i]); this.waveT = -1; }
