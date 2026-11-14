@@ -11,7 +11,7 @@ export const VISIBLE_FLOW = 0.01;
 export class WaterView {
   constructor(parent) {
     const g = new THREE.SphereGeometry(0.0036, 8, 6);
-    this.mesh = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({ color: 0xc8f2ff, transparent: true, opacity: 0.85 }), MAX);
+    this.mesh = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({ color: 0x9fdcf7, transparent: true, opacity: 0.85 }), MAX);
     // Solid water core inside the glass, one segment per wet link between two cells.
     const cg = new THREE.CylinderGeometry(PIPE_R * 0.72, PIPE_R * 0.72, 1, 10, 1, true);
     cg.rotateX(Math.PI / 2);

@@ -77,7 +77,7 @@ export class PushButton {
     this.labelPanel.mesh.position.y = 0.0042;
     // A standing name tag behind the button, readable from the seat.
     this.tag = new CanvasPanel(0.062, 0.017, 512);
-    if (tag === 'side') { this.tag.mesh.position.set(radius + 0.036, 0.012, 0); this.tag.mesh.rotation.x = -0.9; }
+    if (tag === 'side' || tag === 'sideLeft') { this.tag.mesh.position.set((radius + 0.036) * (tag === 'sideLeft' ? -1 : 1), 0.012, 0); this.tag.mesh.rotation.x = -0.9; }
     else { this.tag.mesh.position.set(0, 0.03, -radius - 0.006); this.tag.mesh.rotation.x = -0.35; }
     this.tag.mesh.visible = tag !== 'cap';
     this.group.add(this.tag.mesh);

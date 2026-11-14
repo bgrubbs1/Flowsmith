@@ -61,7 +61,7 @@ The recorder has a 110-second bound and a **Stop & save partial** control. Keep 
 
 ## Assets and license
 
-The pumping-station landmark is original code-authored geometry created for this project. Its soft contact shading is baked into vertex colours with Blender (Cycles ambient occlusion); the landmark's SHA-256 is `8856726efde63baf91f5c3fe73639efe72a7e91e448ca9c2a6cba5e0e8341bea` (668,780 bytes). The slate tiles, walnut, felt and the moss-covered boulders are also original, procedurally generated and baked in Blender by [`tools/blender/bake_assets.py`](tools/blender/bake_assets.py); no photo or third-party textures are used. Re-run it with the `bpy` Python module (`python -I tools/blender/bake_assets.py -- .`). Development and asset creation used AI assistance.
+The pumping-station landmark is original code-authored geometry created for this project. Its soft contact shading is baked into vertex colours with Blender (Cycles ambient occlusion); the landmark's SHA-256 is `8856726efde63baf91f5c3fe73639efe72a7e91e448ca9c2a6cba5e0e8341bea` (668,780 bytes). The slate tiles, walnut and felt are also original, procedurally generated and baked in Blender by [`tools/blender/bake_assets.py`](tools/blender/bake_assets.py); no photo or third-party textures are used. Re-run it with the `bpy` Python module (`python -I tools/blender/bake_assets.py -- .`). Development and asset creation used AI assistance.
 
 Project source and original project artwork: MIT, see [LICENSE](LICENSE). Dependencies retain their respective licenses; see [third-party notices](public/THIRD_PARTY_NOTICES.txt).
 

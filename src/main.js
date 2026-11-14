@@ -136,6 +136,9 @@ function insidePolygon(x, z, poly) {
   return inside;
 }
 app.onEvent((e) => { if (e.type === 'recenter') recenterIn = 2; });
+// In a passthrough session the menu offers My room / Valley: Valley draws the dusk world over passthrough.
+function applyWorld() { const pt = !!app.passthroughAvailable && !app.progress.settings.valley; env.setPassthrough(pt); handViz.full = !pt; }
+app.onEvent((e) => { if (e.type === 'world') applyWorld(); });
 
 // Session start.
 const enterBtn = document.getElementById('enter');
@@ -165,8 +168,9 @@ enterBtn.addEventListener('click', async () => {
   if (!mode) { document.body.classList.add('playing'); return; }
   try {
     const session = await navigator.xr.requestSession(mode, { requiredFeatures: ['local-floor'], optionalFeatures: ['hand-tracking', 'plane-detection'] });
-    env.setPassthrough(mode === 'immersive-ar');
-    handViz.full = mode !== 'immersive-ar';
+    app.passthroughAvailable = mode === 'immersive-ar';
+    applyWorld();
+    if (app.mode === 'menu') app.showMenu();
     renderer.setClearColor(0x000000, 0);
     await renderer.xr.setSession(session);
     session.updateTargetFrameRate?.(72)?.catch?.(() => {});
@@ -174,6 +178,7 @@ enterBtn.addEventListener('click', async () => {
     recenterIn = 8;
     session.addEventListener('end', () => {
       document.body.classList.remove('playing');
+      app.passthroughAvailable = false;
       env.setPassthrough(false);
       handViz.full = true;
       app.anchor.position.set(0, 0.82, -0.32); app.anchor.rotation.set(0, 0, 0);

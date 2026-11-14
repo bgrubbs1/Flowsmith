@@ -3,18 +3,30 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PIECES, N, E, S, W } from '../sim/pieces.js';
 import { T, PIPE_Y, PIPE_R, mat, windowMat } from './materials.js';
-import { BOULDERS } from './rockData.js';
-
-// Sculpted boulders from tools/blender/bake_assets.py: AO and moss are in the vertex colours.
+// Faceted field stones: a jittered icosphere, flat shaded, with grey-blue colour that darkens toward the
+// ground (cheap baked-looking contact shade) and a few lichen-flecked faces. Deterministic per seed.
 const boulderGeo = [];
 function boulder(k) {
-  k %= BOULDERS.length;
+  k %= 4;
   if (!boulderGeo[k]) {
-    const b = BOULDERS[k], g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(Float32Array.from(b.pos, (v) => v / 1000), 3));
-    g.setAttribute('normal', new THREE.BufferAttribute(Float32Array.from(b.nor, (v) => v / 127), 3));
-    g.setAttribute('color', new THREE.BufferAttribute(Float32Array.from(b.col, (v) => (v / 255) ** 2.2), 3));
-    g.setIndex(new THREE.BufferAttribute(b.idx, 1));
+    const g = new THREE.IcosahedronGeometry(1, 1), p = g.attributes.position, v = new THREE.Vector3();
+    const h = (x, y, z) => { const t = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719 + k * 4.1) * 43758.5453; return t - Math.floor(t); };
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i);
+      const r = 0.82 + 0.3 * h(Math.round(v.x * 100), Math.round(v.y * 100), Math.round(v.z * 100));
+      v.multiplyScalar(r); v.y = v.y * 0.72 + 0.1; if (v.y < 0) v.y *= 0.35;
+      p.setXYZ(i, v.x, v.y, v.z);
+    }
+    g.computeVertexNormals();
+    const col = new Float32Array(p.count * 3), c = new THREE.Color();
+    for (let f = 0; f < p.count; f += 3) {
+      const cy = (p.getY(f) + p.getY(f + 1) + p.getY(f + 2)) / 3, n = h(f, k, 7);
+      const shade = 0.55 + 0.45 * Math.min(1, Math.max(0, (cy + 0.1) / 0.75));
+      c.setRGB(0.25, 0.27, 0.29).multiplyScalar(shade * (0.85 + 0.3 * n));
+      if (n > 0.82 && cy > 0.2) c.lerp(new THREE.Color(0.2, 0.24, 0.12), 0.55); // lichen fleck
+      for (let j = 0; j < 3; j++) c.toArray(col, (f + j) * 3);
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     boulderGeo[k] = g;
   }
   return new THREE.Mesh(boulderGeo[k], mat('boulder'));

@@ -128,6 +128,9 @@ export class BoardView {
       tiles.setMatrixAt(i, m4);
       tiles.setColorAt(i, col.setRGB(0.78 + 0.16 * h, 0.82 + 0.12 * h, 0.86 + 0.1 * (1 - h)).multiplyScalar((r + c) % 2 ? 1 : 0.88));
     }
+    this.tiles = tiles; this.tileBase = Array.from({ length: st.rows * st.cols }, (_, i) => { const k = new THREE.Color(); tiles.getColorAt(i, k); return k; });
+    const si = st.cells.findIndex((q) => q?.type === 'source'); this.waveFrom = si < 0 ? [0, 0] : [Math.floor(si / st.cols), si % st.cols]; this.tileCols = st.cols;
+    this.waveT = -1;
     this.content.add(tiles);
     addBoardJoinery(this.content, W, D, st.rows, st.cols);
     // Pieces.
@@ -252,11 +255,13 @@ export class BoardView {
     needle.geometry.translate(0.0075, 0, 0);
     needle.position.z = 0.0009;
     g.add(needle);
-    const label = new CanvasPanel(0.072, 0.016, 640);
-    label.mesh.position.set(0, 0.034, 0.0005); // clear of the copper rim
+    // Status pill sits on the lower half of the dial face, so it moves with the gauge and never floats into lamps.
+    const label = new CanvasPanel(0.03, 0.0085, 512);
+    label.mesh.position.set(0, -0.0108, 0.0012);
     g.add(label.mesh);
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.045, 6), mat('copper'));
-    stem.position.set(0, -0.041, -0.003);
+    // A short post: the gauge rides above the mill on it rather than spearing the hut roof.
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.016, 6), mat('copper'));
+    stem.position.set(0, -0.028, -0.003);
     g.add(stem);
     this.content.add(g);
     return { group: g, needle, label, frac: 0 };
@@ -292,6 +297,7 @@ export class BoardView {
     this.time += dt;
     const st = this.st;
     if (!st) return;
+    if (st.lit && !this.litTarget) this.waveT = 0; // the valley just lit: send a wave of light across the stones
     this.litTarget = st.lit ? 1 : 0;
     const res = st.result;
     // Ease pieces toward their homes; held pieces are positioned by the interaction.
@@ -335,8 +341,10 @@ export class BoardView {
         const txt = dry ? '○ DRY' : m.status === 'ok' ? '✓ JUST RIGHT' : m.status === 'low' ? '▼ TOO SLOW' : '▲ TOO FAST';
         const color = dry ? '#b9c5cc' : m.status === 'ok' ? '#8ce8ba' : m.status === 'low' ? '#abd7ff' : '#ffb078';
         gauge.label.draw(txt, (g, w, h) => {
-          g.fillStyle = 'rgba(15,28,39,0.97)'; roundRect(g, 4, 4, w - 8, h - 8, 30); g.fill();
-          g.fillStyle = color; g.font = font(78, 800); g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.fillStyle = 'rgba(15,28,39,0.97)'; roundRect(g, 3, 3, w - 6, h - 6, h / 2 - 3); g.fill();
+          let px = 92; g.font = font(px, 800);
+          while (g.measureText(txt).width > w - 40 && px > 40) { px -= 4; g.font = font(px, 800); }
+          g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle';
           g.fillText(txt, w / 2, h / 2 + 4);
         });
         if (camera) {
@@ -395,6 +403,20 @@ export class BoardView {
       const e = 1 - (1 - ring.userData.t) ** 3;
       ring.scale.setScalar(0.012 + e * 0.03);
       ring.material.opacity = (1 - ring.userData.t) * 0.85;
+    }
+    if (this.waveT >= 0 && this.tiles) {
+      // Win wave: a warm band of light rolls out across the slabs from the spring (Tetris Effect style).
+      this.waveT += dt;
+      const cols = this.tileCols, n = this.tileBase.length, rows = n / cols, front = this.waveT * 7, col = this.v2 || (this.v2 = new THREE.Color());
+      for (let i = 0; i < n; i++) {
+        const d = Math.hypot(Math.floor(i / cols) - this.waveFrom[0], (i % cols) - this.waveFrom[1]);
+        const k = Math.exp(-((front - d) ** 2) * 1.1);
+        col.copy(this.tileBase[i]).multiplyScalar(1 + 0.9 * k);
+        col.r += 0.45 * k; col.g += 0.3 * k; col.b += 0.08 * k;
+        this.tiles.setColorAt(i, col);
+      }
+      if (front > Math.hypot(rows, cols) + 3) { for (let i = 0; i < n; i++) this.tiles.setColorAt(i, this.tileBase[i]); this.waveT = -1; }
+      this.tiles.instanceColor.needsUpdate = true;
     }
     for (const b of this.buttons) b.update(dt);
     if (this.lampMat) {

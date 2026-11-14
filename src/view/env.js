@@ -22,7 +22,7 @@ export class Environment {
     const rim=new THREE.DirectionalLight(0x8fbfff,1.8);rim.position.set(1.2,1.1,-2);scene.add(this.hemi,this.sun,rim);
     this.room=new THREE.Group();scene.add(this.room);this.table=new THREE.Group();scene.add(this.table);
     // The cabinet top is oiled walnut (baked in Blender), the rest dark painted steel.
-    const slate=bakedSurface('walnut',{color:0xffffff,roughness:.62,metalness:0,envMapIntensity:.5},{repeat:[2,2],normalScale:.5});
+    const slate=bakedSurface('walnut',{color:0xffffff,roughness:.74,metalness:0,envMapIntensity:.25},{repeat:[2,2],normalScale:.35});
     const iron=new THREE.MeshStandardMaterial({color:0x243440,roughness:.66,metalness:.38});
     const brass=new THREE.MeshStandardMaterial({color:0xb58b52,roughness:.3,metalness:.72});
     const copper=new THREE.MeshStandardMaterial({color:0x80563d,roughness:.32,metalness:.65});
@@ -65,6 +65,8 @@ export class Environment {
     const batches=new Map();
     for(const child of [...this.table.children]){if(!child.isMesh)continue;child.updateMatrix();const geo=child.geometry.clone().applyMatrix4(child.matrix);if(!batches.has(child.material))batches.set(child.material,[]);batches.get(child.material).push(geo);this.table.remove(child);}
     for(const [material,geometries] of batches){const merged=mergeGeometries(geometries,false);this.table.add(new THREE.Mesh(merged,material));for(const geometry of geometries)geometry.dispose();}
+    // Lamplight on the cabinet top itself, so the glow (and the win) also shows in passthrough.
+    this.tablePool=lightPool(.66,0xffb46a,.08);this.tablePool.position.set(0,-.0212,.03);this.table.add(this.tablePool);
   }
   connectSource(board) {
     if(!board.st)return;
@@ -80,5 +82,5 @@ export class Environment {
   }
   setPassthrough(on){this.room.visible=!on;this.scene.background=on?null:HORIZON.clone();this.scene.fog=on?null:new THREE.Fog(HORIZON,3,16);}
   followAnchor(anchor){this.table.position.copy(anchor.position);this.table.rotation.y=anchor.rotation.y;}
-  setDusk(f){this.currentFlow=f;for(const material of this.powerMaterials||[])setMaterialPower(material,f);this.hemi.intensity=1.1-.15*f;this.sun.intensity=2.5-.35*f;this.glow.emissiveIntensity=.7+f*2;if(this.pool)this.pool.material.opacity=.22+f*.16;LOOK.lit.value=f;}
+  setDusk(f){this.currentFlow=f;for(const material of this.powerMaterials||[])setMaterialPower(material,f);this.hemi.intensity=1.1-.15*f;this.sun.intensity=2.5-.35*f;this.glow.emissiveIntensity=.7+f*2;if(this.pool)this.pool.material.opacity=.22+f*.16;if(this.tablePool)this.tablePool.material.opacity=.08+f*.22;LOOK.lit.value=f;}
 }

@@ -2,7 +2,7 @@
 const KEY = 'flowsmith.v1';
 let ephemeral = false;
 export function setEphemeral(value) { ephemeral = value; }
-const blank = () => ({ stars: {}, records: {}, daily: { last: 0, streak: 0, best: 0, solvedSeeds: [] }, settings: { assist: false, sound: true } });
+const blank = () => ({ stars: {}, records: {}, daily: { last: 0, streak: 0, best: 0, solvedSeeds: [] }, settings: { assist: false, sound: true, valley: false } });
 
 export function load() {
   if (ephemeral) return blank();
