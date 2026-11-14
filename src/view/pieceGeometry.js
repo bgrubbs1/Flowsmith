@@ -3,6 +3,34 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PIECES, N, E, S, W } from '../sim/pieces.js';
 import { T, PIPE_Y, PIPE_R, mat, windowMat } from './materials.js';
+// Faceted field stones: a jittered icosphere, flat shaded, with grey-blue colour that darkens toward the
+// ground (cheap baked-looking contact shade) and a few lichen-flecked faces. Deterministic per seed.
+const boulderGeo = [];
+function boulder(k) {
+  k %= 4;
+  if (!boulderGeo[k]) {
+    const g = new THREE.IcosahedronGeometry(1, 1), p = g.attributes.position, v = new THREE.Vector3();
+    const h = (x, y, z) => { const t = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719 + k * 4.1) * 43758.5453; return t - Math.floor(t); };
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i);
+      const r = 0.82 + 0.3 * h(Math.round(v.x * 100), Math.round(v.y * 100), Math.round(v.z * 100));
+      v.multiplyScalar(r); v.y = v.y * 0.72 + 0.1; if (v.y < 0) v.y *= 0.35;
+      p.setXYZ(i, v.x, v.y, v.z);
+    }
+    g.computeVertexNormals();
+    const col = new Float32Array(p.count * 3), c = new THREE.Color();
+    for (let f = 0; f < p.count; f += 3) {
+      const cy = (p.getY(f) + p.getY(f + 1) + p.getY(f + 2)) / 3, n = h(f, k, 7);
+      const shade = 0.55 + 0.45 * Math.min(1, Math.max(0, (cy + 0.1) / 0.75));
+      c.setRGB(0.25, 0.27, 0.29).multiplyScalar(shade * (0.85 + 0.3 * n));
+      if (n > 0.82 && cy > 0.2) c.lerp(new THREE.Color(0.2, 0.24, 0.12), 0.55); // lichen fleck
+      for (let j = 0; j < 3; j++) c.toArray(col, (f + j) * 3);
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    boulderGeo[k] = g;
+  }
+  return new THREE.Mesh(boulderGeo[k], mat('boulder'));
+}
 
 const ARM = { [N]: [0, -1], [E]: [1, 0], [S]: [0, 1], [W]: [-1, 0] };
 
@@ -42,15 +70,16 @@ export function buildPiece(type, opts = {}) {
   const locked = !!opts.locked;
   const copper = mat(locked ? 'copperLocked' : 'copper');
   if (type === 'rock') {
-    const g = new THREE.DodecahedronGeometry(0.018, 0);
-    const m = new THREE.Mesh(g, mat('stone'));
-    m.scale.set(1.1, 0.8, 1);
-    m.position.y = 0.012;
-    m.rotation.y = (opts.seed || 0) * 2.1;
+    const seed = opts.seed || 0;
+    const m = boulder(seed);
+    m.scale.setScalar(0.019);
+    m.position.y = 0.0085;
+    m.rotation.y = seed * 2.1;
     group.add(m);
-    const g2 = new THREE.DodecahedronGeometry(0.011, 0);
-    const m2 = new THREE.Mesh(g2, mat('stone'));
-    m2.position.set(0.014, 0.007, 0.01);
+    const m2 = boulder(seed + 1);
+    m2.scale.setScalar(0.0105);
+    m2.position.set(0.015, 0.005, 0.011);
+    m2.rotation.y = seed * 1.3 + 1;
     group.add(m2);
     return { group, parts };
   }
@@ -58,9 +87,10 @@ export function buildPiece(type, opts = {}) {
     // A spring: a ring of stones around a bubbling basin.
     for (let k = 0; k < 5; k++) {
       const a = (k / 5) * Math.PI * 2 + 0.4;
-      const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.0085 + 0.002 * (k % 2), 0), mat('stone'));
-      s.position.set(Math.cos(a) * 0.017, 0.007, Math.sin(a) * 0.017);
-      s.rotation.set(k, k * 2, 0);
+      const s = boulder(k);
+      s.scale.setScalar(0.0085 + 0.002 * (k % 2));
+      s.position.set(Math.cos(a) * 0.017, 0.005, Math.sin(a) * 0.017);
+      s.rotation.set(0, k * 2, 0);
       group.add(s);
     }
     const basin = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.012, 0.01, 20), mat('iron'));

@@ -75,7 +75,7 @@ export class App {
     this.mode = 'menu';
     this.board.root.visible = false;
     this.menu.root.visible = true;
-    this.menu.build(this.levels, this.progress, this.dailyState(), !!this.st);
+    this.menu.build(this.levels, this.progress, this.dailyState(), !!this.st, !!this.passthroughAvailable);
     this.ixMenu.reset();
     this.emit({ type: 'menu' });
   }
@@ -116,6 +116,7 @@ export class App {
       case 'assist': this.progress.settings.assist = !this.progress.settings.assist; this.applySettings(); store.save(this.progress); return this.showMenu();
       case 'sound': this.progress.settings.sound = !this.progress.settings.sound; this.applySettings(); store.save(this.progress); return this.showMenu();
       case 'recenter': this.emit({ type: 'recenter' }); return;
+      case 'world': this.progress.settings.valley = !this.progress.settings.valley; store.save(this.progress); this.emit({ type: 'world', valley: this.progress.settings.valley }); return this.showMenu();
       case 'levels': return this.showMenu();
       case 'resume':
         if (!this.st) return;
@@ -198,7 +199,7 @@ export class App {
       const from = this.board.traySlot(k, st.tray.length);
       this.board.setGhost(missing.type, from, this.board.cellCenter(missing.r, missing.c), 'place');
       this.board.ghost.group.rotation.y = -missing.rot * Math.PI / 2;
-      this.hintText = `A ${missing.type} goes where the ghost lands.`;
+      this.hintText = `${/^[aeiou]/.test(missing.type) ? 'An' : 'A'} ${missing.type} goes where the ghost lands.`;
       this.hintShown++;
       return this.refreshHud(true);
     }
@@ -234,7 +235,7 @@ export class App {
     const body = this.hintText && !this.solved ? this.hintText : (isLesson && !this.solved && st.result.placed === 0 && this.lessonStep ? this.def.hint : s.body);
     const name = this.levelIndex === 'daily' ? `Daily Flow · ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : `${this.levelIndex + 1}. ${this.def.name}`;
     const acc = accuracy(st.result);
-    const stars = this.solved ? '★'.repeat(this.solvedStars) + '☆'.repeat(3 - this.solvedStars) : (st.result.mills.some((m) => m.flow > 0.02) ? `${st.result.mills.filter((m) => m.status === 'ok').length}/${st.result.mills.length} mills green` : '');
+    const stars = this.solved ? '★'.repeat(this.solvedStars) + '☆'.repeat(3 - this.solvedStars) : (st.result.mills.length ? `${st.result.mills.filter((m) => m.status === 'ok').length}/${st.result.mills.length} ${st.result.mills.length === 1 ? 'mill' : 'mills'} green` : '');
     const footer = this.solved
       ? (this.levelIndex === 'daily' ? `Daily: ${st.result.placed} pieces · ${Math.round(this.elapsed)} s · flow ${acc}% · streak ${this.progress.daily?.streak ?? 1}`
         : `★ solved   ${this.hintShown ? '☆' : '★'} no hints   ${acc >= PRECISE ? '★' : '☆'} dead-on flow ${acc}%` + (acc < PRECISE ? '  (twist toward the centre line)' : ''))

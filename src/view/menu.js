@@ -31,7 +31,7 @@ export class MenuView {
     this.dropMarker = new THREE.Object3D();
     this.st = null;
   }
-  build(levels, progress, daily, canResume = false) {
+  build(levels, progress, daily, canResume = false, canWorld = false) {
     for (const b of this.buttons) this.root.remove(b.group);
     for (const k of this.knobs) this.root.remove(k);
     if (this.plinth) this.root.remove(this.plinth);
@@ -68,6 +68,7 @@ export class MenuView {
     const center = new PushButton({ id: 'recenter', label: 'Recenter', icon: '◎', radius: 0.02 });
     center.group.position.set(sx * 1.5, -0.006, dz);
     for (const b of [dailyBtn, assist, sound, center]) { this.root.add(b.group); this.buttons.push(b); }
+    if (canWorld) { const world = new PushButton({ id: 'world', label: progress.settings.valley ? 'Valley' : 'My room', icon: progress.settings.valley ? '☾' : '⌂', radius: .02, tag: 'sideLeft', color: 0x8fb8d8 }); world.group.position.set(-W / 2 - .025, -.006, .05); this.root.add(world.group); this.buttons.push(world); }
     if (canResume) { const resume = new PushButton({id:'resume',label:'Resume',icon:'>',radius:.02,tag:'side',color:0xc7a568}); resume.group.position.set(W/2+.025,-.006,.05);this.root.add(resume.group);this.buttons.push(resume); }
     const total = Object.values(progress.stars).reduce((a, b) => a + b, 0);
     this.title.last = '';

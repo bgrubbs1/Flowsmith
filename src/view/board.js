@@ -49,6 +49,13 @@ export class BoardView {
     this.dropMarker.visible = false;
     this.root.add(this.dropMarker);
     this.leakMarkers = [];
+    // Placement 'pop' rings: a brass ripple where a pipe lands (pooled, four at a time).
+    this.rings = [];
+    for (let i = 0; i < 4; i++) {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 32), new THREE.MeshBasicMaterial({ color: 0xffd58a, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      ring.rotation.x = -Math.PI / 2; ring.visible = false; ring.userData.t = 1;
+      this.root.add(ring); this.rings.push(ring);
+    }
     this.ghost = null;
     this.time = 0;
     this.v = new THREE.Vector3();
@@ -101,7 +108,7 @@ export class BoardView {
     tray.position.set(0, -0.008, D / 2 + 0.05 + trayD / 2 - 0.031);
     this.content.add(tray);
     // Green felt in the tray so copper and glass stand out against it.
-    const felt = new THREE.Mesh(new THREE.BoxGeometry(trayW - 0.012, 0.002, trayD - 0.012), new THREE.MeshStandardMaterial({ color: 0x172b36, roughness: 1 }));
+    const felt = new THREE.Mesh(new THREE.BoxGeometry(trayW - 0.012, 0.002, trayD - 0.012), mat('felt'));
     felt.position.set(tray.position.x, tray.position.y + 0.0075, tray.position.z);
     this.content.add(felt);
     const shadow = new THREE.Mesh(new THREE.PlaneGeometry(Math.max(W, trayW) + 0.2, D + 0.3), mat('shadow'));
@@ -109,16 +116,21 @@ export class BoardView {
     shadow.position.set(0, -0.0225, 0.04);
     this.content.add(shadow);
     // Tiles.
-    const tiles = new THREE.InstancedMesh(new THREE.BoxGeometry(T * 0.95, 0.003, T * 0.95), new THREE.MeshStandardMaterial({ roughness: 0.58, metalness: 0.22 }), st.rows * st.cols);
+    const tiles = new THREE.InstancedMesh(new THREE.BoxGeometry(T * 0.95, 0.003, T * 0.95), mat('slate'), st.rows * st.cols);
     const m4 = new THREE.Matrix4();
     const col = new THREE.Color();
     for (let r = 0; r < st.rows; r++) for (let c = 0; c < st.cols; c++) {
       const i = r * st.cols + c;
       const p = this.cellCenter(r, c);
-      m4.makeTranslation(p.x, 0.0015, p.z);
+      // Each slab turned a quarter at random and tinted slightly, so the floor reads as laid stone, not a grid.
+      const h = Math.sin((r * 12.9898 + c * 78.233) * 43.17) * 0.5 + 0.5;
+      m4.makeRotationY(Math.floor(h * 4) * Math.PI / 2).setPosition(p.x, 0.0015, p.z);
       tiles.setMatrixAt(i, m4);
-      tiles.setColorAt(i, col.setHex((r + c) % 2 ? COLORS.grassA : COLORS.grassB));
+      tiles.setColorAt(i, col.setRGB(0.78 + 0.16 * h, 0.82 + 0.12 * h, 0.86 + 0.1 * (1 - h)).multiplyScalar((r + c) % 2 ? 1 : 0.88));
     }
+    this.tiles = tiles; this.tileBase = Array.from({ length: st.rows * st.cols }, (_, i) => { const k = new THREE.Color(); tiles.getColorAt(i, k); return k; });
+    const si = st.cells.findIndex((q) => q?.type === 'source'); this.waveFrom = si < 0 ? [0, 0] : [Math.floor(si / st.cols), si % st.cols]; this.tileCols = st.cols;
+    this.waveT = -1;
     this.content.add(tiles);
     addBoardJoinery(this.content, W, D, st.rows, st.cols);
     // Pieces.
@@ -194,8 +206,13 @@ export class BoardView {
       const o = this.ensure(p, i);
       if (o.held) continue;
       const c = this.cellCenter(Math.floor(i / st.cols), i % st.cols);
+      const landed = o.inTray !== false || !o.target || !o.target.equals(c);
+      const turned = o.targetRot !== undefined && o.targetRot !== -p.rot * Math.PI / 2;
       o.target = c.clone();
       o.targetRot = -p.rot * Math.PI / 2;
+      if (o.inTray === true || (landed && o.wasHeld)) { o.popT = 0; o.popAmp = 1; this.ripple(c); }
+      else if (turned) { o.popT = 0; o.popAmp = 0.45; }
+      o.wasHeld = false;
       o.inTray = false;
     }
     st.tray.forEach((p, k) => {
@@ -207,11 +224,16 @@ export class BoardView {
     });
   }
 
+  ripple(at) {
+    const ring = this.rings.find((r) => r.userData.t >= 1) || this.rings[0];
+    ring.position.set(at.x, 0.0045, at.z); ring.userData.t = 0; ring.visible = true;
+  }
+
   makeGauge(i) {
     const st = this.st;
     const g = new THREE.Group();
     const c = this.cellCenter(Math.floor(i / st.cols), i % st.cols);
-    g.position.set(c.x + 0.012, 0.080, c.z + 0.008);
+    g.position.set(c.x + 0.012, 0.090, c.z + 0.008); // high enough that the pill under the dial clears the mill wheel
     const back = new THREE.Mesh(new THREE.CircleGeometry(0.019, 28), new THREE.MeshBasicMaterial({ color: 0xfff8ec }));
     g.add(back);
     const rim = new THREE.Mesh(new THREE.RingGeometry(0.019, 0.021, 28), new THREE.MeshBasicMaterial({ color: COLORS.copper }));
@@ -233,11 +255,14 @@ export class BoardView {
     needle.geometry.translate(0.0075, 0, 0);
     needle.position.z = 0.0009;
     g.add(needle);
-    const label = new CanvasPanel(0.072, 0.016, 640);
-    label.mesh.position.set(0, 0.027, 0.0005);
+    // Status pill hangs just under the dial rim, so it moves with the gauge and never floats into lamps.
+    const label = new CanvasPanel(0.056, 0.0125, 640);
+    label.mesh.position.set(0, -0.0285, 0.0012);
+    label.material.depthTest = false; label.mesh.renderOrder = 4; // always readable, even past the mill wheel
     g.add(label.mesh);
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.045, 6), mat('copper'));
-    stem.position.set(0, -0.041, -0.003);
+    // A short post: the gauge rides above the mill on it rather than spearing the hut roof.
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.022, 6), mat('copper'));
+    stem.position.set(0, -0.040, -0.003);
     g.add(stem);
     this.content.add(g);
     return { group: g, needle, label, frac: 0 };
@@ -260,6 +285,8 @@ export class BoardView {
 
   setGhost(type, fromLocal, toLocal, mode) {
     if (this.ghost) { this.content.remove(this.ghost.group); this.ghost = null; }
+    // While a lesson ghost shows where a piece goes, the leak there only dribbles, so it never hides the ghost.
+    this.water.quietAt = type && mode !== 'valve' ? toLocal.clone() : null;
     if (!type) return;
     const b = buildPiece(type, {});
     b.group.traverse((m) => {
@@ -273,10 +300,12 @@ export class BoardView {
     this.time += dt;
     const st = this.st;
     if (!st) return;
+    if (st.lit && !this.litTarget) this.waveT = 0; // the valley just lit: send a wave of light across the stones
     this.litTarget = st.lit ? 1 : 0;
     const res = st.result;
     // Ease pieces toward their homes; held pieces are positioned by the interaction.
     for (const o of this.objects.values()) {
+      if (o.held) o.wasHeld = true;
       if (o.held || !o.target) continue;
       const k = 1 - Math.exp(-dt * 18);
       o.group.position.lerp(o.target, k);
@@ -286,6 +315,13 @@ export class BoardView {
       // Once the valley is lit, leftover tray pieces tuck away so the finished valley has the stage.
       const sc = o.inTray ? (this.litTarget ? 0.001 : 0.85) : 1;
       o.group.scale.setScalar(o.group.scale.x + (sc - o.group.scale.x) * k);
+      // Squash and stretch on landing or turning: a short, damped bounce (0.4 s) sells the weight of the copper.
+      if (o.popT !== undefined && o.popT < 0.4) {
+        o.popT += dt;
+        const u = Math.min(1, o.popT / 0.4), w = Math.sin(u * Math.PI * 2.5) * (1 - u) * 0.16 * o.popAmp;
+        const s0 = o.group.scale.x;
+        o.group.scale.set(s0 * (1 + w * 0.6), s0 * (1 - w), s0 * (1 + w * 0.6));
+      }
       if (o.parts.wheel && o.piece.type === 'valve') o.parts.wheel.rotation.y = -(1 - o.piece.open) * VALVE_RANGE;
     }
     // Mills, windows, gauges.
@@ -308,8 +344,10 @@ export class BoardView {
         const txt = dry ? '○ DRY' : m.status === 'ok' ? '✓ JUST RIGHT' : m.status === 'low' ? '▼ TOO SLOW' : '▲ TOO FAST';
         const color = dry ? '#b9c5cc' : m.status === 'ok' ? '#8ce8ba' : m.status === 'low' ? '#abd7ff' : '#ffb078';
         gauge.label.draw(txt, (g, w, h) => {
-          g.fillStyle = 'rgba(15,28,39,0.97)'; roundRect(g, 4, 4, w - 8, h - 8, 30); g.fill();
-          g.fillStyle = color; g.font = font(78, 800); g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.fillStyle = 'rgba(15,28,39,0.97)'; roundRect(g, 3, 3, w - 6, h - 6, h / 2 - 3); g.fill();
+          let px = 92; g.font = font(px, 800);
+          while (g.measureText(txt).width > w - 40 && px > 40) { px -= 4; g.font = font(px, 800); }
+          g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle';
           g.fillText(txt, w / 2, h / 2 + 4);
         });
         if (camera) {
@@ -361,6 +399,27 @@ export class BoardView {
       if (gh.mode === 'rotate') gh.group.rotation.y = (gh.baseRot || 0) - Math.PI * e;
       if (gh.mode === 'valve' && gh.parts.wheel) gh.parts.wheel.rotation.y = -VALVE_RANGE * 0.6 * e;
       gh.group.visible = gh.t < 0.9;
+    }
+    for (const ring of this.rings) {
+      if (ring.userData.t >= 1) { ring.visible = false; continue; }
+      ring.userData.t = Math.min(1, ring.userData.t + dt / 0.55);
+      const e = 1 - (1 - ring.userData.t) ** 3;
+      ring.scale.setScalar(0.012 + e * 0.03);
+      ring.material.opacity = (1 - ring.userData.t) * 0.85;
+    }
+    if (this.waveT >= 0 && this.tiles) {
+      // Win wave: a warm band of light rolls out across the slabs from the spring (Tetris Effect style).
+      this.waveT += dt;
+      const cols = this.tileCols, n = this.tileBase.length, rows = n / cols, front = this.waveT * 4, col = this.v2 || (this.v2 = new THREE.Color());
+      for (let i = 0; i < n; i++) {
+        const d = Math.hypot(Math.floor(i / cols) - this.waveFrom[0], (i % cols) - this.waveFrom[1]);
+        const k = Math.exp(-((front - d) ** 2) * 0.45);
+        col.copy(this.tileBase[i]).multiplyScalar(1 + 2.2 * k);
+        col.r += 1.4 * k; col.g += 0.95 * k; col.b += 0.3 * k;
+        this.tiles.setColorAt(i, col);
+      }
+      if (front > Math.hypot(rows, cols) + 3) { for (let i = 0; i < n; i++) this.tiles.setColorAt(i, this.tileBase[i]); this.waveT = -1; }
+      this.tiles.instanceColor.needsUpdate = true;
     }
     for (const b of this.buttons) b.update(dt);
     if (this.lampMat) {

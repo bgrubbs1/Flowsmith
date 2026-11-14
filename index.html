@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Flowsmith</title>
   <meta name="description" content="A hands-only tabletop water puzzle for Meta Quest. Pinch pipes into place, twist valves, light the valley." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23b06a3b'/%3E%3Cpath d='M32 12c8 12 14 20 14 28a14 14 0 0 1-28 0c0-8 6-16 14-28z' fill='%2379c3e8'/%3E%3C/svg%3E" />
@@ -47,6 +47,19 @@
     #arcade-bar button:hover:not(:disabled) { background:#344a58; }
     #arcade-bar button[data-action="next"]:not(:disabled) { background:#c7a568; color:#102130; font-weight:750; }
     #panel em { color:#d7ae74; } #desktop-status { font-size:12px; }
+
+    /* Phones: the canvas owns touch (no page scroll or pinch-zoom mid-drag); a slim one-row toolbar. */
+    #stage canvas { touch-action:none; -webkit-user-select:none; user-select:none; }
+    @media (max-width:760px) {
+      #arcade-bar { top:max(8px, env(safe-area-inset-top)); left:8px; right:8px; gap:6px; }
+      #arcade-bar strong { font-size:12px; letter-spacing:1.5px; }
+      #arcade-bar div { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; max-width:100%; }
+      #arcade-bar button { white-space:nowrap; padding:8px 9px; font-size:12px; }
+      #arcade-bar button[data-action="next"]:disabled { display:none; }
+      #desktop-status { bottom:max(10px, env(safe-area-inset-bottom)); font-size:12px; padding:8px 12px; }
+      #panel { left:50%; transform:translateX(-50%); bottom:max(24px, env(safe-area-inset-bottom)); width:min(320px, calc(100% - 32px)); }
+    }
+    body.portrait #arcade-bar { flex-direction:column; align-items:stretch; }
   </style>
 </head>
 <body>
