@@ -22,7 +22,7 @@ const E = 1, S = 2, W = 3; // rotations of a single-port piece (base port N)
 export const LESSONS = [
   authored({
     id: 'l1', name: 'First Light', rows: 3, cols: 5, par: 1,
-    hint: 'Water is spilling into the grass. Pinch the pipe in the tray and drop it in the gap to reach the mill.',
+    hint: 'Water is escaping from the open pipe. Pinch the pipe in the tray and drop it in the gap to reach the mill.',
     teach: 'place',
     fixed: [
       { r: 1, c: 0, type: 'source', rot: E },
@@ -64,6 +64,26 @@ export const LESSONS = [
   }),
 ];
 
+
+// Authored progression: gestures, reconnecting a short line, then coupled supply.
+export const RECONNECT = authored({
+  id:'authored-reconnect',name:'Reconnect',rows:3,cols:5,par:3,
+  hint:'Reconnect the broken line, then steady the mill with the valve.',
+  fixed:[{r:0,c:0,type:'source',rot:2},{r:1,c:3,type:'mill',rot:1},{r:1,c:4,type:'drain',rot:3},{r:0,c:2,type:'rock'},{r:2,c:1,type:'rock'}],
+  inventory:[{type:'elbow',rot:2},{type:'straight',rot:0},{type:'valve',rot:0}],
+  solution:[{r:1,c:0,type:'elbow',rot:0},{r:1,c:1,type:'straight',rot:1},{r:1,c:2,type:'valve',rot:1,open:.4}],
+});
+export const NIGHT_SHIFT = authored({
+  id:'authored-night-shift',name:'The Night Shift',rows:5,cols:6,par:4,
+  hint:'One intake. Two mills. Reconnect the split, then keep both mills steady without spills. Tuning one branch changes the other.',
+  fixed:[{r:4,c:0,type:'source',rot:1},{r:3,c:2,type:'straight',rot:0,locked:true},{r:1,c:2,type:'straight',rot:0,locked:true},
+    {r:2,c:3,type:'valve',rot:1,open:1,solveOpen:.25},{r:0,c:3,type:'valve',rot:1,open:1,solveOpen:.4},
+    {r:0,c:4,type:'mill',rot:1},{r:0,c:5,type:'drain',rot:3},{r:2,c:4,type:'mill',rot:1},{r:2,c:5,type:'drain',rot:3},
+    {r:0,c:1,type:'rock'},{r:2,c:1,type:'rock'},{r:1,c:4,type:'rock'},{r:3,c:4,type:'rock'}],
+  inventory:[{type:'straight',rot:0},{type:'tee',rot:1},{type:'elbow',rot:2},{type:'elbow',rot:2}],
+  solution:[{r:4,c:1,type:'straight',rot:1},{r:4,c:2,type:'elbow',rot:3},{r:2,c:2,type:'tee',rot:0},{r:0,c:2,type:'elbow',rot:1}],
+});
+
 // Every generated level has a valve in series with each mill, so the puzzle is balancing flow, not guessing pipe length.
 const CAMPAIGN_SPECS = [
   { name: 'Long Way Round', rows: 5, cols: 5, mills: 1, valves: 1, decoys: 1, rocks: 4, locked: 0.4, seed: 5202 },
@@ -82,7 +102,8 @@ export function campaign() {
   if (cache) return cache;
   cache = [
     ...LESSONS,
-    ...CAMPAIGN_SPECS.map((s, i) => generateLevel({ ...s, id: 'c' + (i + 1) })),
+    RECONNECT, NIGHT_SHIFT,
+    ...CAMPAIGN_SPECS.slice(2).map((s, i) => generateLevel({ ...s, id: 'c' + (i + 3) })),
   ];
   return cache;
 }

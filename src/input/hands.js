@@ -129,14 +129,22 @@ export class HandInput {
 
 // Mouse fallback for desktop preview: the "hand" sits where the pointer ray meets a plane just above the board.
 export class MouseHand {
-  constructor(dom, camera, getBoardPlane) {
+  constructor(dom, camera, getBoardPlane, buttons = null) {
     this.state = makeHandState('right');
     this.state.kind = 'mouse';
     this.camera = camera; this.getBoardPlane = getBoardPlane;
     this.ndc = new THREE.Vector2(); this.ray = new THREE.Raycaster();
     this.downReq = false; this.wheel = 0; this.active = false;
     dom.addEventListener('pointermove', (e) => { this.setNdc(e, dom); this.active = true; });
-    dom.addEventListener('pointerdown', (e) => { this.setNdc(e, dom); this.downReq = true; this.active = true; });
+    dom.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return;
+      this.setNdc(e, dom); this.active = true;
+      this.ray.setFromCamera(this.ndc, camera);
+      // Hit the rendered button/tag, not its projection onto the pipe plane.
+      const button = buttons && desktopButtonAt(this.ray, buttons.list());
+      if (button) { buttons.press(button.id); return; }
+      this.downReq = true;
+    });
     window.addEventListener('pointerup', () => { this.downReq = false; });
     dom.addEventListener('wheel', (e) => { this.wheel += Math.sign(e.deltaY) * (Math.PI / 12); e.preventDefault(); }, { passive: false });
     window.addEventListener('keydown', (e) => { if (e.key === 'r' || e.key === 'R') this.wheel += Math.PI / 3 + 0.01; });
@@ -158,4 +166,19 @@ export class MouseHand {
     h.pinch = { down: this.downReq, started: this.downReq && !wasDown, ended: !this.downReq && wasDown };
     h.palmUp = false;
   }
+}
+
+// A desktop click targets the actual visible surface. XR still uses near pinch/poke.
+export function desktopButtonAt(ray, buttons) {
+  let closest = null, distance = Infinity;
+  for (const button of buttons) {
+    if (!button.enabled || !button.group.visible) continue;
+    button.group.updateWorldMatrix(true, true);
+    const targets = [button.cap];
+    if (button.tag?.mesh.visible) targets.push(button.tag.mesh);
+    for (const hit of ray.intersectObjects(targets, true)) {
+      if (hit.distance < distance) { closest = button; distance = hit.distance; }
+    }
+  }
+  return closest;
 }

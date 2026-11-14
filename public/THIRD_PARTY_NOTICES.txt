@@ -1,0 +1,66 @@
+THIRD-PARTY NOTICES
+
+Runtime dependencies distributed with Flowsmith:
+
+three 0.180.0
+{'type': 'git', 'url': 'https://github.com/mrdoob/three.js'}
+
+The MIT License
+
+Copyright Â© 2010-2025 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+
+iwer 2.8.0
+{'type': 'git', 'url': 'git+https://github.com/meta-quest/immersive-web-emulation-runtime.git'}
+
+MIT License
+
+Copyright (c) Meta Platforms, Inc. and affiliates.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+Development/test dependencies (not app functionality):
+vite 6.4.6 - MIT
+vitest 3.2.7 - MIT
+playwright 1.65.1 - Apache-2.0
+
+Dependencies and transitive packages retain their own license notices. npm-installed packages include their respective licenses. See package-lock.json for exact dependency versions.
+
+ORIGINAL PROJECT ART
+flowsmith-waterworks-landmark.glb is original code-authored geometry created for Flowsmith with AI assistance. It uses no external textures. The Flowsmith project source and original artwork are distributed under the repository MIT license (Copyright (c) 2026 Flowsmith authors). This is a project attribution, not a claim that a named external studio or artist created the model.
+SHA256: 986700f722b81442caf9cf8357d71a1dcaf9940eb0d8c2bfa76b60bb7d0c33b1

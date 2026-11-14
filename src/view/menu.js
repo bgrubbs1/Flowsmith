@@ -21,7 +21,7 @@ export class MenuView {
     parent.add(this.root);
     this.buttons = [];
     this.knobs = [];
-    this.title = new CanvasPanel(0.4, 0.15, 1200);
+    this.title = new CanvasPanel(0.38, 0.105, 1200);
     this.title.mesh.position.set(0, 0.12, -0.15);
     this.title.mesh.rotation.x = -0.25;
     this.root.add(this.title.mesh);
@@ -31,7 +31,7 @@ export class MenuView {
     this.dropMarker = new THREE.Object3D();
     this.st = null;
   }
-  build(levels, progress, daily) {
+  build(levels, progress, daily, canResume = false) {
     for (const b of this.buttons) this.root.remove(b.group);
     for (const k of this.knobs) this.root.remove(k);
     if (this.plinth) this.root.remove(this.plinth);
@@ -45,7 +45,7 @@ export class MenuView {
     levels.forEach((def, i) => {
       const r = Math.floor(i / cols), c = i % cols;
       const stars = progress.stars[def.id] || 0;
-      const b = new PushButton({ id: 'level:' + i, label: '★'.repeat(stars) + '☆'.repeat(3 - stars), icon: String(i + 1), radius: 0.022, tag: 'cap', color: stars === 3 ? 0x7fd8a6 : stars ? 0xf2c46b : 0xe9dcc3 });
+      const b = new PushButton({ id: 'level:' + i, label: '★'.repeat(stars) + '☆'.repeat(3 - stars), icon: String(i + 1), radius: 0.022, tag: 'cap', color: stars === 3 ? 0x8fbbad : stars ? 0xc7a56c : 0xc0b49b });
       b.group.position.set((c - (cols - 1) / 2) * sx, -0.006, -0.09 + r * sz);
       this.root.add(b.group); this.buttons.push(b);
       // The valley lights up: each solved level gets a lit lantern beside its button.
@@ -68,19 +68,20 @@ export class MenuView {
     const center = new PushButton({ id: 'recenter', label: 'Recenter', icon: '◎', radius: 0.02 });
     center.group.position.set(sx * 1.5, -0.006, dz);
     for (const b of [dailyBtn, assist, sound, center]) { this.root.add(b.group); this.buttons.push(b); }
+    if (canResume) { const resume = new PushButton({id:'resume',label:'Resume',icon:'>',radius:.02,tag:'side',color:0xc7a568}); resume.group.position.set(W/2+.025,-.006,.05);this.root.add(resume.group);this.buttons.push(resume); }
     const total = Object.values(progress.stars).reduce((a, b) => a + b, 0);
     this.title.last = '';
     this.title.draw('t' + total + daily.streak + daily.done, (g, w, h) => {
-      g.fillStyle = 'rgba(245,234,214,0.96)'; roundRect(g, 6, 6, w - 12, h - 12, 40); g.fill();
-      g.strokeStyle = '#b06a3b'; g.lineWidth = 8; g.stroke();
-      g.fillStyle = '#2b2118'; g.textAlign = 'center'; g.textBaseline = 'top';
-      g.font = font(120, 800); g.fillText('Flowsmith', w / 2, 34);
-      g.font = font(40, 500); g.fillStyle = '#4a3a2a';
-      wrapText(g, 'Pinch pipes into place. Twist valves. Light the valley.', w / 2, 178, w - 120, 48);
-      g.font = font(36, 700); g.fillStyle = '#b06a3b';
-      g.fillText(`★ ${total} / ${levels.length * 3}     ☀ Daily streak ${daily.streak}`, w / 2, 262);
-      g.font = font(30, 500); g.fillStyle = '#7a6550';
-      g.fillText('Press a button with your fingertip, or pinch it.', w / 2, 320);
+      g.fillStyle = 'rgba(15,28,39,0.97)'; roundRect(g, 6, 6, w - 12, h - 12, 12); g.fill();
+      g.strokeStyle = '#c7a568'; g.lineWidth = 3; g.stroke();
+      g.fillStyle = '#f3e6cc'; g.textAlign = 'center'; g.textBaseline = 'top';
+      g.font = '600 96px Georgia, serif'; g.fillText('Flowsmith', w / 2, 24);
+      g.font = font(35, 500); g.fillStyle = '#c4d7de';
+      wrapText(g, 'Pinch pipes into place. Twist valves. Light the valley.', w / 2, 135, w - 120, 48);
+      g.font = font(36, 700); g.fillStyle = '#c7a568';
+      g.fillText(`★ ${total} / ${levels.length * 3}     ☀ Daily streak ${daily.streak}`, w / 2, 210);
+      g.font = font(30, 500); g.fillStyle = '#9fb5bf';
+      g.fillText('Press a button with your fingertip, or pinch it.', w / 2, 270);
     });
   }
   update(dt) { for (const b of this.buttons) b.update(dt); }

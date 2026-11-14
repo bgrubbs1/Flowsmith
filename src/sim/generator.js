@@ -223,6 +223,7 @@ export function verifySolution(def) {
     if (!placePiece(st, item.id, s.r, s.c)) return false;
     if (s.type === 'valve') setValve(st, item.id, s.open);
   }
+  for (const f of def.fixed) if (f.type === 'valve' && f.solveOpen != null) setValve(st, st.cells[f.r * st.cols + f.c].id, f.solveOpen);
   return st.result.solved;
 }
 

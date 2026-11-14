@@ -5,6 +5,7 @@ import { T, PIPE_Y, COLORS, mat } from './materials.js';
 import { buildPiece } from './pieceGeometry.js';
 import { WaterView } from './water.js';
 import { CanvasPanel, PushButton, roundRect, wrapText, font } from './ui.js';
+import { addBoardJoinery } from './joinery.js';
 import { DIRS } from '../sim/pieces.js';
 
 const TRAY_SPACING = 0.056;
@@ -100,7 +101,7 @@ export class BoardView {
     tray.position.set(0, -0.008, D / 2 + 0.05 + trayD / 2 - 0.031);
     this.content.add(tray);
     // Green felt in the tray so copper and glass stand out against it.
-    const felt = new THREE.Mesh(new THREE.BoxGeometry(trayW - 0.012, 0.002, trayD - 0.012), new THREE.MeshStandardMaterial({ color: 0x1f3a34, roughness: 1 }));
+    const felt = new THREE.Mesh(new THREE.BoxGeometry(trayW - 0.012, 0.002, trayD - 0.012), new THREE.MeshStandardMaterial({ color: 0x172b36, roughness: 1 }));
     felt.position.set(tray.position.x, tray.position.y + 0.0075, tray.position.z);
     this.content.add(felt);
     const shadow = new THREE.Mesh(new THREE.PlaneGeometry(Math.max(W, trayW) + 0.2, D + 0.3), mat('shadow'));
@@ -108,7 +109,7 @@ export class BoardView {
     shadow.position.set(0, -0.0225, 0.04);
     this.content.add(shadow);
     // Tiles.
-    const tiles = new THREE.InstancedMesh(new THREE.BoxGeometry(T * 0.95, 0.003, T * 0.95), new THREE.MeshStandardMaterial({ roughness: 0.95 }), st.rows * st.cols);
+    const tiles = new THREE.InstancedMesh(new THREE.BoxGeometry(T * 0.95, 0.003, T * 0.95), new THREE.MeshStandardMaterial({ roughness: 0.58, metalness: 0.22 }), st.rows * st.cols);
     const m4 = new THREE.Matrix4();
     const col = new THREE.Color();
     for (let r = 0; r < st.rows; r++) for (let c = 0; c < st.cols; c++) {
@@ -119,6 +120,7 @@ export class BoardView {
       tiles.setColorAt(i, col.setHex((r + c) % 2 ? COLORS.grassA : COLORS.grassB));
     }
     this.content.add(tiles);
+    addBoardJoinery(this.content, W, D, st.rows, st.cols);
     // Pieces.
     for (let i = 0; i < st.cells.length; i++) {
       const p = st.cells[i];
@@ -137,7 +139,7 @@ export class BoardView {
       post.position.set(x, 0.025, z);
       const cap = new THREE.Mesh(new THREE.ConeGeometry(0.0065, 0.006, 6), mat('iron'));
       cap.position.set(x, 0.058, z);
-      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.0062, 12, 8), lampMat);
+      const bulb = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.010, 6), lampMat);
       bulb.position.set(x, 0.051, z);
       const halo = new THREE.Sprite(this.haloMat || (this.haloMat = new THREE.SpriteMaterial({ map: haloTexture(), color: 0xffc35a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })));
       halo.scale.setScalar(0.05); halo.position.copy(bulb.position);
@@ -149,7 +151,7 @@ export class BoardView {
     this.lit = 0; this.litTarget = 0;
     // Move knobs at the tray ends.
     for (const sx of [-1, 1]) {
-      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.011, 16, 12), mat('brass'));
+      const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.012, 16), mat('brass'));
       knob.position.set(sx * (trayW / 2 + 0.016), 0.004, D / 2 + 0.05);
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.006, 0.02, 10), mat('woodDark'));
       post.position.set(knob.position.x, -0.01, knob.position.z);
@@ -164,7 +166,8 @@ export class BoardView {
       this.buttons.push(b);
     });
     // HUD behind the board, tilted toward the player.
-    this.hud.mesh.position.set(0, 0.125, -D / 2 - 0.07);
+    // Bring the placard in front of the gantry in the seated emulator view.
+    this.hud.mesh.position.set(0, 0.15, -D / 2 + 0.015);
     this.hud.mesh.rotation.set(-0.25, 0, 0);
     this.hud.last = '';
     // Ghost hint.
@@ -208,7 +211,7 @@ export class BoardView {
     const st = this.st;
     const g = new THREE.Group();
     const c = this.cellCenter(Math.floor(i / st.cols), i % st.cols);
-    g.position.set(c.x + 0.012, 0.095, c.z);
+    g.position.set(c.x + 0.012, 0.080, c.z + 0.008);
     const back = new THREE.Mesh(new THREE.CircleGeometry(0.019, 28), new THREE.MeshBasicMaterial({ color: 0xfff8ec }));
     g.add(back);
     const rim = new THREE.Mesh(new THREE.RingGeometry(0.019, 0.021, 28), new THREE.MeshBasicMaterial({ color: COLORS.copper }));
@@ -242,16 +245,16 @@ export class BoardView {
 
   setHud(key, data) {
     this.hud.draw(key, (g, w, h) => {
-      g.fillStyle = 'rgba(245,234,214,0.96)';
-      roundRect(g, 6, 6, w - 12, h - 12, 36); g.fill();
-      g.strokeStyle = '#b06a3b'; g.lineWidth = 8; g.stroke();
-      g.fillStyle = '#2b2118'; g.textBaseline = 'top'; g.textAlign = 'left';
-      g.font = font(54, 800);
+      g.fillStyle = 'rgba(15,28,39,0.97)';
+      roundRect(g, 6, 6, w - 12, h - 12, 12); g.fill();
+      g.strokeStyle = '#c7a568'; g.lineWidth = 3; g.stroke();
+      g.fillStyle = '#f3e6cc'; g.textBaseline = 'top'; g.textAlign = 'left';
+      g.font = '600 54px Georgia, serif';
       g.fillText(data.title, 40, 30);
-      if (data.right) { g.textAlign = 'right'; g.font = font(48, 700); g.fillStyle = data.rightColor || '#b06a3b'; g.fillText(data.right, w - 40, 34); g.textAlign = 'left'; }
-      g.fillStyle = '#2a2420'; g.font = font(40, 600);
-      wrapText(g, data.body || '', 40, 104, w - 80, 48);
-      if (data.footer) { g.font = font(36, 700); g.fillStyle = '#5a4532'; g.fillText(data.footer, 40, h - 50); }
+      if (data.right) { g.textAlign = 'right'; g.font = font(48, 700); g.fillStyle = data.rightColor || '#c7a568'; g.fillText(data.right, w - 40, 34); g.textAlign = 'left'; }
+      g.fillStyle = '#d1dfdf'; g.font = font(34, 500);
+      wrapText(g, data.body || '', 40, 100, w - 80, 41);
+      if (data.footer) { g.font = font(28, 600); g.fillStyle = '#adbec6'; g.fillText(data.footer, 40, h - 50); }
     });
   }
 
@@ -303,9 +306,9 @@ export class BoardView {
         gauge.needle.rotation.z = GAUGE_A0 - gauge.frac * GAUGE_SWEEP + (m.status === 'high' ? Math.sin(this.time * 50) * 0.04 : 0);
         const dry = m.flow < 0.02;
         const txt = dry ? '○ DRY' : m.status === 'ok' ? '✓ JUST RIGHT' : m.status === 'low' ? '▼ TOO SLOW' : '▲ TOO FAST';
-        const color = dry ? '#6b6b6b' : m.status === 'ok' ? '#1f8a4c' : m.status === 'low' ? '#3d6694' : '#c2410c';
+        const color = dry ? '#b9c5cc' : m.status === 'ok' ? '#8ce8ba' : m.status === 'low' ? '#abd7ff' : '#ffb078';
         gauge.label.draw(txt, (g, w, h) => {
-          g.fillStyle = 'rgba(255,248,236,0.95)'; roundRect(g, 4, 4, w - 8, h - 8, 30); g.fill();
+          g.fillStyle = 'rgba(15,28,39,0.97)'; roundRect(g, 4, 4, w - 8, h - 8, 30); g.fill();
           g.fillStyle = color; g.font = font(78, 800); g.textAlign = 'center'; g.textBaseline = 'middle';
           g.fillText(txt, w / 2, h / 2 + 4);
         });
@@ -328,6 +331,10 @@ export class BoardView {
       let mk = this.leakMarkers[li];
       if (!mk) {
         mk = new THREE.Mesh(new THREE.RingGeometry(0.009, 0.018, 28), new THREE.MeshBasicMaterial({ color: COLORS.leak, transparent: true, side: THREE.DoubleSide }));
+        const warningMat = new THREE.MeshBasicMaterial({color:0xfff3cf,side:THREE.DoubleSide});
+        const stem = new THREE.Mesh(new THREE.PlaneGeometry(.0025,.010),warningMat); stem.position.set(0,.003,.0005);
+        const dot = new THREE.Mesh(new THREE.CircleGeometry(.0016,8),warningMat); dot.position.set(0,-.005,.0005);
+        mk.add(stem,dot);
         this.root.add(mk); this.leakMarkers.push(mk);
       }
       const r = Math.floor(L.i / st.cols), c = L.i % st.cols;

@@ -10,10 +10,10 @@ import { portsOf } from '../sim/pieces.js';
 import * as store from '../util/store.js';
 
 const BOARD_BUTTONS = [
-  { id: 'reset', label: 'Reset', icon: '↺', radius: 0.017, color: 0xf2c28b },
-  { id: 'hint', label: 'Hint', icon: '?', radius: 0.017, color: 0xfde68a },
-  { id: 'levels', label: 'Levels', icon: '☰', radius: 0.017, color: 0xc7d2fe },
-  { id: 'next', label: 'Next', icon: '▶', radius: 0.019, color: 0x86efac },
+  { id: 'reset', label: 'Reset', icon: '↺', radius: 0.017, color: 0xc7a568 },
+  { id: 'hint', label: 'Hint', icon: '?', radius: 0.017, color: 0xc6b995 },
+  { id: 'levels', label: 'Levels', icon: '☰', radius: 0.017, color: 0x9caeb7 },
+  { id: 'next', label: 'Next', icon: '▶', radius: 0.019, color: 0x99b6a8 },
 ];
 
 // How close every mill is to the centre of its window: 100% = dead centre, 0% = at the window's edge.
@@ -75,7 +75,7 @@ export class App {
     this.mode = 'menu';
     this.board.root.visible = false;
     this.menu.root.visible = true;
-    this.menu.build(this.levels, this.progress, this.dailyState());
+    this.menu.build(this.levels, this.progress, this.dailyState(), !!this.st);
     this.ixMenu.reset();
     this.emit({ type: 'menu' });
   }
@@ -89,11 +89,13 @@ export class App {
     this.st = createLevelState(def);
     this.mode = 'play';
     this.solved = false;
+    this.previousLiveFlow = false;
     this.solvedHold = 0;
     this.hintShown = 0;
     this.hintText = null;
     this.flashCell = null;
     this.elapsed = 0;
+    this.lastClock = null;
     this.lessonStep = def.teach || null;
     this.menu.root.visible = false;
     this.board.root.visible = true;
@@ -115,6 +117,11 @@ export class App {
       case 'sound': this.progress.settings.sound = !this.progress.settings.sound; this.applySettings(); store.save(this.progress); return this.showMenu();
       case 'recenter': this.emit({ type: 'recenter' }); return;
       case 'levels': return this.showMenu();
+      case 'resume':
+        if (!this.st) return;
+        this.mode = 'play'; this.menu.root.visible = false; this.board.root.visible = true;
+        this.ixMenu.reset(); this.lastClock = null; this.refreshHud(true);
+        this.emit({ type: 'resume' }); return;
       case 'reset': return this.startLevel(this.levelIndex);
       case 'hint': return this.showHint();
       case 'next': {
@@ -206,8 +213,9 @@ export class App {
 
   statusLine() {
     const r = this.st.result;
-    if (this.solved) return { title: 'Flowing!', body: 'Every mill is in the green and nothing leaks. Press Next.' };
-    if (r.leaks.length) return { body: `${r.leaks.length === 1 ? 'A pipe end is' : r.leaks.length + ' pipe ends are'} leaking (red rings). Water must only reach the sea.` };
+    if (this.solved && r.solved) return { title: 'Flow restored', body: 'Every mill is in the green and nothing leaks. Press Next.' };
+    if (this.solved && !r.solved) return { title: 'Flow interrupted', body: 'Your earned stars are saved. Repair the network, or press Next to continue.' };
+    if (r.leaks.length) return { body: `${r.leaks.length === 1 ? 'A pipe end is' : r.leaks.length + ' pipe ends are'} leaking (pulsing warning rings). Water must only reach the sea.` };
     const low = r.mills.filter((m) => m.status === 'low').length, high = r.mills.filter((m) => m.status === 'high').length;
     if (!r.sol.wet.some((w, i) => w && this.st.cells[i]?.type === 'mill')) return { body: this.def.hint || 'Connect the spring to the mills, then on to the sea.' };
     const valve = this.st.cells.some((p) => p?.type === 'valve');
@@ -234,7 +242,7 @@ export class App {
     const key = [name, stars, body, footer, this.solved].join('|');
     if (!force && key === this.lastStatus) return;
     this.lastStatus = key;
-    this.board.setHud(key, { title: s.title || name, right: stars, rightColor: this.solved ? '#1f8a4c' : '#b06a3b', body, footer });
+    this.board.setHud(key, { title: s.title || name, right: stars, rightColor: this.solved && st.result.solved ? '#8ce8ba' : '#d7ae74', body, footer });
   }
 
   starsNow() { return 1 + (this.hintShown ? 0 : 1) + (accuracy(this.st.result) >= PRECISE ? 1 : 0); }
@@ -242,11 +250,13 @@ export class App {
     const id = this.def.id;
     if (this.levelIndex === 'daily') store.recordDaily(this.progress, dailySeed());
     else this.progress.stars[id] = Math.max(this.progress.stars[id] || 0, this.solvedStars);
+    store.recordRun(this.progress, this.levelIndex === 'daily' ? 'daily:' + dailySeed() : id, { stars: this.solvedStars, accuracy: accuracy(this.st.result), seconds: this.elapsed, hints: this.hintShown });
     store.save(this.progress);
   }
   win() {
     this.solved = true;
     this.st.lit = true;
+    this.previousLiveFlow = true;
     this.solvedStars = this.starsNow();
     const id = this.def.id;
     this.saveStars();
@@ -267,7 +277,10 @@ export class App {
   busy(hands) { return hands.some((h) => h.ix && h.ix.mode !== 'idle'); }
 
   update(dt, hands, now, camera) {
+    this.frameSerial = (this.frameSerial || 0) + 1;
     this.time += dt;
+    const elapsedDelta = this.lastClock == null ? dt : Math.max(0, now - this.lastClock);
+    this.lastClock = now;
     if (this.mode === 'menu') {
       this.ixMenu.update(dt, hands, now);
       this.menu.update(dt);
@@ -279,12 +292,13 @@ export class App {
       if (okNow > (this.prevOk ?? okNow)) this.sound.millOk();
       this.prevOk = okNow;
       if (!this.solved) {
-        this.elapsed += dt;
+        this.elapsed += elapsedDelta;
         this.solvedHold = r.solved && !this.busy(hands) ? this.solvedHold + dt : 0;
         if (this.solvedHold > 0.35) this.win();
       } else {
         // Keep tuning after the win: landing every needle on its centre line earns the third star.
         this.st.lit = r.solved;
+        if (this.previousLiveFlow !== r.solved) { this.previousLiveFlow = r.solved; this.emit({ type: 'flow', active: r.solved }); }
         if (r.solved && !this.busy(hands)) {
           const s = this.starsNow();
           if (s > this.solvedStars) { this.solvedStars = s; this.saveStars(); this.sound.solved(); this.refreshHud(true); this.emit({ type: 'stars', stars: s }); }

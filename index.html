@@ -17,16 +17,46 @@
     #enter:disabled { opacity: 0.5; cursor: default; }
     #note { font-size: 14px; color: #6b5640; min-height: 1em; }
     body.playing #panel { display: none; }
+
+    :root { --ink:#f4ecd9; --accent:#d9a764; }
+    button { font:inherit; cursor:pointer; } button:focus-visible { outline:3px solid #9fe2cc; outline-offset:3px; } button:disabled { opacity:.4; cursor:default; }
+    #panel { width:300px; left:22px; bottom:65px; transform:none; text-align:left; background:#172c28f2; border:1px solid #9d956155; padding:23px; border-radius:14px; }
+    #panel h1 { font-size:39px; line-height:1.05; letter-spacing:-1px; margin:13px 0; } #panel em { color:#bde8d0; font-family:Georgia,serif; } #panel p { font-size:13px; color:#d1d4bd; }
+    .eyebrow { font-size:9px; letter-spacing:1px; color:#d9a764; } #enter { font-size:16px; padding:12px; width:100%; color:#142721; border-radius:6px; }
+    #browse-puzzles { background:none; border:0; color:#bde8d0; font-size:12px; padding:14px 0 0; } #panel #note { font-size:10px; color:#aebcad; }
+    #arcade-bar { position:fixed; top:16px; left:20px; right:20px; display:flex; align-items:center; justify-content:space-between; gap:12px; z-index:5; text-shadow:0 2px 8px #000; }
+    #arcade-bar strong { font-size:17px; letter-spacing:2px; } #arcade-bar small { display:block; font-size:8px; letter-spacing:2px; margin-top:4px; color:#ddd2b3; }
+    #arcade-bar div { display:flex; gap:4px; padding:4px; border-radius:8px; background:#172c28ed; border:1px solid #b0a47444; }
+    #arcade-bar button,#close-arcade { border:0; border-radius:5px; padding:9px 10px; background:transparent; color:#eeead3; font-size:11px; }
+    #arcade-bar button:hover:not(:disabled),#close-arcade:hover { background:#405847; } #arcade-bar button:first-child { background:#d9a764; color:#172c28; font-weight:700; }
+    #desktop-status { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:#172c28ed; border:1px solid #b0a47444; border-radius:7px; padding:10px 16px; color:#e4e4cc; font-size:11px; white-space:nowrap; pointer-events:none; }
+    #arcade { width:min(960px,calc(100% - 40px)); max-height:calc(100% - 60px); box-sizing:border-box; padding:27px; background:#152b25; color:#eee7cd; border:1px solid #a5a06a; border-radius:16px; }
+    #arcade::backdrop { background:#09130ed9; backdrop-filter:blur(6px); } #arcade header { display:flex; justify-content:space-between; gap:20px; margin-bottom:20px; } #arcade header small { font-size:9px; letter-spacing:2px; color:#d9a764; } #arcade h2 { font-size:32px; margin:8px 0; letter-spacing:-1px; } #arcade p { font-size:12px; color:#b9c4ae; }
+    #arcade-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; } .puzzle-card { display:flex; flex-direction:column; text-align:left; gap:9px; min-height:153px; padding:17px; color:#f0e7cd; background:linear-gradient(130deg,#36563d,#1d362e); border:1px solid #89956266; border-radius:8px; } .puzzle-card:nth-child(3n+2) { background:linear-gradient(130deg,#284c4c,#1b3333); } .puzzle-card:nth-child(3n) { background:linear-gradient(130deg,#585033,#303b2b); } .puzzle-card:hover { border-color:#edc580; } .puzzle-card small { font-size:9px; color:#c1b88d; } .puzzle-card small span { float:right; color:#e9be72; } .puzzle-card strong { margin-top:12px; font-size:18px; } .puzzle-card span,.puzzle-card em { font-size:10px; color:#c5d4bb; font-style:normal; } .puzzle-card em { margin-top:auto; border-top:1px solid #b0c09133; padding-top:10px; } #arcade footer { margin-top:20px; font-size:12px; color:#d9a764; }
+    body.in-xr #arcade-bar,body.in-xr #desktop-status { display:none; } #record-demo { position:fixed; bottom:16px; right:16px; z-index:8; padding:12px; background:#d9a764; border:0; border-radius:6px; font-size:12px; } #capture-disclosure { position:fixed; top:73px; left:20px; background:#152b25; padding:7px; color:#e9be72; font-size:9px; }
+    @media(max-width:760px) { #arcade-grid { grid-template-columns:repeat(2,1fr); } #arcade-bar { flex-wrap:wrap; top:10px; left:12px; right:12px; } #arcade-bar small { display:none; } #arcade-bar div { flex-wrap:wrap; } #panel { width:250px; padding:18px; } #desktop-status { white-space:normal; width:85%; } #arcade { padding:20px; } }
+    #stop-demo,#save-demo { position:fixed; bottom:60px; right:16px; z-index:9; padding:12px; background:#9fe2cc; color:#102923; border:0; border-radius:6px; font-size:12px; cursor:pointer; text-decoration:none; }
+    #stop-demo[hidden],#save-demo[hidden] { display:none; }
+
+    /* V5: cool instrument surfaces; warm copper is reserved for handles and actions. */
+    body { background:#09131e; }
+    #panel { background:#0f1c27f2; border-color:#c7a56855; border-radius:3px; }
+    #arcade-bar div,#desktop-status { background:#0f1c27ee; border-color:#c7a56844; border-radius:3px; }
+    #arcade { background:#101f2b; border-radius:4px; }
+    .puzzle-card,.puzzle-card:nth-child(3n+2),.puzzle-card:nth-child(3n) { background:linear-gradient(140deg,#293e4c,#152431); border-radius:3px; border-color:#90a2ac44; }
+    #arcade-bar button:hover:not(:disabled) { background:#344a58; }
+    #arcade-bar button[data-action="next"]:not(:disabled) { background:#c7a568; color:#102130; font-weight:750; }
+    #panel em { color:#d7ae74; } #desktop-status { font-size:12px; }
   </style>
 </head>
 <body>
   <div id="stage"></div>
   <div id="panel">
-    <h1>Flowsmith</h1>
+    <small class="eyebrow">A HANDS-FIRST WATERWORKS PUZZLE</small><h1>Find your <em>flow.</em></h1>
     <p>Pinch pipes into place. Twist valves. Get every mill turning just right without spilling a drop.</p>
     <p style="font-size:15px">Hands only · seated · 10 minutes or less · a new puzzle every day</p>
     <button id="enter" disabled>Checking for a headset…</button>
-    <p id="note"></p>
+    <button id="browse-puzzles">Explore all 12 puzzles →</button><p id="note"></p>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>

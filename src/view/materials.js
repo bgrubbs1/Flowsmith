@@ -5,18 +5,18 @@ export const PIPE_Y = 0.014;
 export const PIPE_R = 0.0085;
 
 export const COLORS = {
-  copper: 0xd98a52,
-  copperDark: 0x8a5232,
-  brass: 0xd8b04a,
+  copper: 0xc98b58,
+  copperDark: 0x76523a,
+  brass: 0xc4a56b,
   glass: 0xbfe6ff,
   water: 0x3cc8ff,
   waterDeep: 0x1f6fd1,
-  grassA: 0x7fb069,
-  grassB: 0x6fa25c,
-  wood: 0x5a3a24,
-  woodDark: 0x5e3b22,
-  stone: 0x9a948a,
-  roof: 0xb5523b,
+  grassA: 0x334852,
+  grassB: 0x293b46,
+  wood: 0x202c35,
+  woodDark: 0x101a23,
+  stone: 0x708087,
+  roof: 0x365762,
   ok: 0x4cd07d,
   low: 0x6a8fb8,
   high: 0xff7a45,
@@ -31,9 +31,9 @@ export function mat(name) {
   if (cache.has(name)) return cache.get(name);
   let m;
   switch (name) {
-    case 'copper': m = new THREE.MeshStandardMaterial({ color: COLORS.copper, metalness: 0.45, roughness: 0.38 }); break;
+    case 'copper': m = new THREE.MeshStandardMaterial({ color: COLORS.copper, metalness: 0.75, roughness: 0.27 }); break;
     case 'copperLocked': m = new THREE.MeshStandardMaterial({ color: COLORS.copperDark, metalness: 0.35, roughness: 0.55 }); break;
-    case 'brass': m = new THREE.MeshStandardMaterial({ color: COLORS.brass, metalness: 0.5, roughness: 0.3 }); break;
+    case 'brass': m = new THREE.MeshStandardMaterial({ color: COLORS.brass, metalness: 0.72, roughness: 0.28 }); break;
     case 'glass': m = new THREE.MeshStandardMaterial({ color: 0xf2fbff, metalness: 0, roughness: 0.05, transparent: true, opacity: 0.22, depthWrite: false, emissive: 0x9fdcff, emissiveIntensity: 0.12 }); break;
     case 'water': m = new THREE.MeshStandardMaterial({ color: COLORS.water, emissive: 0x0b3a77, roughness: 0.2, metalness: 0 }); break;
     case 'sea': m = new THREE.MeshStandardMaterial({ color: COLORS.waterDeep, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.9 }); break;
@@ -42,9 +42,9 @@ export function mat(name) {
     case 'stone': m = new THREE.MeshStandardMaterial({ color: COLORS.stone, roughness: 0.95, flatShading: true }); break;
     case 'roof': m = new THREE.MeshStandardMaterial({ color: COLORS.roof, roughness: 0.7, flatShading: true }); break;
     case 'wheelRed': m = new THREE.MeshStandardMaterial({ color: COLORS.wheel, roughness: 0.5, metalness: 0.2 }); break;
-    case 'mound': m = new THREE.MeshStandardMaterial({ color: 0x8fae6b, roughness: 0.9, flatShading: true }); break;
-    case 'sand': m = new THREE.MeshStandardMaterial({ color: 0xe2cf9b, roughness: 0.95 }); break;
-    case 'paleWood': m = new THREE.MeshStandardMaterial({ color: 0xd9b37a, roughness: 0.7 }); break;
+    case 'mound': m = new THREE.MeshStandardMaterial({ color: 0x516369, roughness: 0.9, flatShading: true }); break;
+    case 'sand': m = new THREE.MeshStandardMaterial({ color: 0x667881, roughness: 0.95 }); break;
+    case 'paleWood': m = new THREE.MeshStandardMaterial({ color: 0xb98c56, roughness: 0.7 }); break;
     case 'lamp': m = new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffc35a, emissiveIntensity: 0.05, roughness: 0.4 }); break;
     case 'lampLit': m = new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffc35a, emissiveIntensity: 1.6, roughness: 0.4 }); break;
     case 'iron': m = new THREE.MeshStandardMaterial({ color: 0x2e3440, roughness: 0.6, metalness: 0.4 }); break;

@@ -5,6 +5,7 @@ import { T, PIPE_Y, PIPE_R } from './materials.js';
 
 const MAX = 1400;
 const SPACING = 0.011;
+export const VISIBLE_FLOW = 0.01;
 
 export class WaterView {
   constructor(parent) {
@@ -26,6 +27,10 @@ export class WaterView {
     this.core.frustumCulled = false;
     this.core.count = 0;
     parent.add(this.core);
+    // Filled but effectively still water must not borrow the moving stripe texture.
+    this.stillCore = new THREE.InstancedMesh(cg, new THREE.MeshStandardMaterial({color:0x297c9c,roughness:.22,transparent:true,opacity:.8}),400);
+    this.stillCore.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.stillCore.frustumCulled=false;this.stillCore.count=0;parent.add(this.stillCore);
     this.q = new THREE.Quaternion();
     this.sc = new THREE.Vector3();
     this.up = new THREE.Vector3(0, 0, 1);
@@ -41,7 +46,7 @@ export class WaterView {
   update(dt, st, cellCenter) {
     this.t += dt;
     const res = st.result;
-    if (!res) { this.mesh.count = 0; return; }
+    if (!res) { this.mesh.count = this.core.count = this.stillCore.count = 0; return; }
     let n = 0;
     const put = (x, y, z, s = 1) => {
       if (n >= MAX) return;
@@ -49,31 +54,33 @@ export class WaterView {
       this.mesh.setMatrixAt(n++, this.m);
     };
     const cols = st.cols;
-    let nc = 0;
-    const seg = (ax, az, bx, bz) => {
-      if (nc >= 400) return;
+    let nc = 0, ns = 0;
+    const seg = (ax, az, bx, bz, moving = true) => {
+      if ((moving ? nc : ns) >= 400) return;
       this.v.set(bx - ax, 0, bz - az);
       const len = this.v.length();
       this.q.setFromUnitVectors(this.up, this.v.normalize());
       this.m.compose(this.v.set((ax + bx) / 2, PIPE_Y, (az + bz) / 2), this.q, this.sc.set(1, 1, len));
-      this.core.setMatrixAt(nc++, this.m);
+      if(moving)this.core.setMatrixAt(nc++, this.m);else this.stillCore.setMatrixAt(ns++,this.m);
     };
-    this.stripeTex.offset.y -= dt * 1.6;
     for (const e of res.sol.edges) {
       if (!res.sol.wet[e.a] || !res.sol.wet[e.b]) continue;
       const a = cellCenter(Math.floor(e.a / cols), e.a % cols);
       const b = cellCenter(Math.floor(e.b / cols), e.b % cols);
-      if (e.q >= 0) seg(a.x, a.z, b.x, b.z); else seg(b.x, b.z, a.x, a.z);
+      const moving=Math.abs(e.q)>=VISIBLE_FLOW;
+      if (e.q >= 0) seg(a.x, a.z, b.x, b.z,moving); else seg(b.x, b.z, a.x, a.z,moving);
     }
     for (const L of res.leaks) {
       const a = cellCenter(Math.floor(L.i / cols), L.i % cols);
       const d = DIRS.find((x) => x.bit === L.dir);
-      seg(a.x, a.z, a.x + (d.dc * T) / 2, a.z + (d.dr * T) / 2);
+      seg(a.x, a.z, a.x + (d.dc * T) / 2, a.z + (d.dr * T) / 2, Math.abs(L.q)>=VISIBLE_FLOW);
     }
+    if(nc>0)this.stripeTex.offset.y -= dt * 1.6;
     this.core.count = nc;
+    this.stillCore.count=ns;this.stillCore.instanceMatrix.needsUpdate=true;
     this.core.instanceMatrix.needsUpdate = true;
     for (const e of res.sol.edges) {
-      if (!res.sol.wet[e.a] || Math.abs(e.q) < 0.01) continue;
+      if (!res.sol.wet[e.a] || Math.abs(e.q) < VISIBLE_FLOW) continue;
       const k = e.a * 4096 + e.b;
       const speed = Math.min(0.22, 0.035 * Math.abs(e.q) + 0.01);
       const ph = ((this.phase.get(k) || 0) + (speed * dt) / T) % 1;

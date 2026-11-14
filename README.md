@@ -1,27 +1,70 @@
 # Flowsmith
 
-A seated tabletop pipe puzzle for Meta Quest Browser. Place pipes and turn valves with tracked hands to balance the flow through water mills. It uses three.js, WebXR, and a flow-network solver.
+A hands-first waterworks puzzle designed for seated play in Meta Quest Browser, with a playable desktop mode. Build a miniature pipe network, balance competing mills, and bring a copper-and-slate pumping station to life.
+
+## Play
+
+**[Play Flowsmith now](https://bgrubbs1.github.io/Flowsmith/)**. The repository contains the source; GitHub Pages serves the playable game. Use a current WebXR-capable browser for headset mode or a desktop browser for mouse controls.
+
+Start with **First Light**, **The Bend**, and **Easy Does It**. These introduce placement, rotation, and valve tuning. **Reconnect** combines those gestures. **The Night Shift** introduces shared pressure: restricting one branch changes the other mill's flow. Seven seeded advanced puzzles and a date-seeded Daily Flow follow.
+
+The goal is to bring every mill into its marked target band without leaks. A pulsing warning ring with an exclamation mark identifies an open pipe end. Gauges also say **DRY**, **TOO SLOW**, **TOO FAST**, or **JUST RIGHT**. Water stays filled but stops streaming when flow is negligible. The station lights up when the complete network is valid.
+
+### Tracked hands
+
+- Choose **Enter (passthrough)**, or **Enter VR** when offered.
+- Pinch a loose pipe, carry it to a socket, and release.
+- Twist your wrist while holding a pipe to turn it. A quick pinch on a placed pipe turns it one quarter-turn.
+- Pinch a red valve wheel and twist to tune its opening.
+- Poke or pinch a physical button. Use **Hint** for guidance, **Reset** to restart, and **Next** after completing a puzzle.
+- Use **Recenter** or the board's side handles to adjust placement. Remain comfortably seated and keep the real area clear.
+
+### Desktop
+
+- Choose **Play on desktop**. Drag a pipe from the tray to an empty socket.
+- While holding a pipe, scroll or press **R** to rotate it.
+- Hold a red valve and scroll to tune it.
+- Use **Puzzles & records** to choose a stage. **Resume puzzle** returns from the level menu without discarding the current board. Choosing a level card starts that level again.
+
+You earn a star for completing the network, another for completing it without hints, and another for precise flow. Personal bests are stored only in this browser. Scores are 1,000 per star plus 10 per accuracy point; time breaks ties. There are no accounts, online rankings, or fabricated opponents. Previously earned stars stay saved if you keep experimenting after a win; the live status changes to **Flow interrupted** if you break the network.
 
 ## Run locally
 
 Requires Node.js 20 or newer.
 
-```powershell
+```sh
 npm ci
 npm run dev
 ```
 
-Open the URL printed by Vite. On a desktop, drag pieces with the mouse and use the wheel or `R` to rotate. On a compatible headset, choose **Enter (passthrough)** or **Enter VR**. Add `?emulate` to the local URL for the Immersive Web Emulation Runtime preview.
+Open the local URL printed by Vite. The landmark must be present at `public/assets/flowsmith-waterworks-landmark.glb`; it is included in the complete release source.
 
-## Verify
-
-```powershell
+```sh
 npm test
 npm run build
+npm run preview
 ```
 
-The tests cover the flow solver, generated levels, interactions, and a scripted hand-play demo. The scripted demo takes about two minutes. Automated emulation does not replace a test on a Meta Quest device.
+## Implementation and validation
 
-## License
+Built with Three.js, WebXR, Meta's Immersive Web Emulation Runtime, and a flow-network solver. The campaign contains three gesture lessons, two authored transition challenges, and seven reproducible generated puzzles. The original, texture-free landmark has 10,238 triangles and 11 material batches. Its essential geometry remains present in passthrough; the surrounding room does not.
 
-MIT. See [LICENSE](LICENSE).
+The latest validated source suite has 45 tests across 12 files. Coverage includes solver invariants, generated-level solvability, shared-pressure counterexamples, placement and rotation, real IWER joint transforms passed through the hand-input code, local records, menu Resume, post-win break/repair, low-flow animation, powered material states, and recording interruptions. The production build passed. These tests do not establish physical Quest tracking, comfort, or headset frame rate.
+
+A browser-emulator walkthrough demonstrates The Night Shift's pressure tradeoff and successful completion. It is scripted emulator footage, not footage recorded on Quest hardware. Real-device validation remains a separate requirement; no hardware performance claim is made.
+
+## Recording a local emulator walkthrough
+
+In the development server, open `?emulate&vr&director`, enter VR, then use the visible recording button. Add `&showcase` to record The Night Shift instead of the three lessons. The director moves emulated hands through the normal interaction system. It does not directly place solved board state.
+
+The recorder has a 110-second bound and a **Stop & save partial** control. Keep the page open until the downloaded file is verified. Footage has a burned-in **SCRIPTED EMULATOR / NOT QUEST HARDWARE** label. Recording controls are development-only. Use these visible controls rather than the retained legacy browser-automation capture script.
+
+## Assets and license
+
+The pumping-station landmark is original code-authored geometry created for this project, with no external textures. Development and asset creation used AI assistance. The landmark's SHA-256 is `986700f722b81442caf9cf8357d71a1dcaf9940eb0d8c2bfa76b60bb7d0c33b1` (519,328 bytes).
+
+Project source and original project artwork: MIT, see [LICENSE](LICENSE). Dependencies retain their respective licenses; see [third-party notices](public/THIRD_PARTY_NOTICES.txt).
+
+## Gameplay video
+
+[Watch The Night Shift demo](https://www.youtube.com/watch?v=wGSmnWDv_BE). Genuine scripted emulator footage, not Quest hardware footage.

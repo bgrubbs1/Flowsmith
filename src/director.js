@@ -2,13 +2,16 @@
 // It moves IWER's emulated right hand exactly like a player would; every action goes through the normal game code.
 import * as THREE from 'three';
 import { PIPE_Y } from './view/materials.js';
-import { placePiece } from './sim/level.js';
+import { VALVE_RANGE } from './game/interaction.js';
+
+export function valveCorrection(error) { return Math.sign(error) * Math.min(0.15, Math.abs(error) * VALVE_RANGE * 0.75); }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const ease = (t) => t * t * (3 - 2 * t);
 
 export class Director {
-  constructor(app, device, sound) {
+  constructor(app, device, sound, signal = null) {
+    this.signal = signal;
     this.app = app; this.device = device; this.sound = sound;
     this.hand = device.hands.right;
     this.pos = new THREE.Vector3(0.12, 0.95, -0.15);
@@ -40,12 +43,25 @@ export class Director {
     });
     this.hand.updatePinchValue(this.pinchV);
   }
+  checkStopped() { if (this.signal?.aborted) throw new Error('Recording stopped by request.'); }
+  async sampledFrame() {
+    this.checkStopped();
+    const serial = this.app.frameSerial || 0, started = performance.now();
+    while ((this.app.frameSerial || 0) === serial) {
+      this.checkStopped();
+      if (performance.now() - started > 15000) throw new Error('No rendered game frame for 15 seconds; recording stopped.');
+      await sleep(12);
+    }
+  }
   async tween(ms, fn) {
     const t0 = performance.now();
     for (;;) {
+      this.checkStopped();
       const t = Math.min(1, (performance.now() - t0) / ms);
       fn(ease(t));
       this.apply();
+      // Every endpoint must be sampled by the real frame loop, even at low FPS.
+      await this.sampledFrame();
       if (t >= 1) break;
       await sleep(11);
     }
@@ -60,15 +76,16 @@ export class Director {
   }
   async setPinch(v, ms = 160) { const a = this.pinchV; await this.tween(ms, (e) => { this.pinchV = a + (v - a) * e; }); }
   async twistBy(rad, ms = 500) { const a = this.twist; await this.tween(ms, (e) => { this.twist = a + rad * e; }); }
-  async point(on) { this.pose = on ? 'point' : 'default'; this.hand.poseId = on ? 'point' : 'default'; this.apply(); await sleep(150); }
+  async point(on) { this.checkStopped(); this.pose = on ? 'point' : 'default'; this.hand.poseId = on ? 'point' : 'default'; this.apply(); await this.sampledFrame(); await sleep(150); }
 
   boardLocal(r, c, y = PIPE_Y) { return this.app.board.cellCenter(r, c).setY(y); }
   async press(id) {
+    this.checkStopped();
     const inMenu = this.app.mode === 'menu';
     const list = inMenu ? this.app.menu.buttons : this.app.board.buttons;
     const root = inMenu ? this.app.menu.root : this.app.board.root;
     const b = list.find((x) => x.id === id);
-    if (!b) throw new Error('no button ' + id);
+    if (!b || !b.enabled) throw new Error('Button not available: ' + id);
     await this.point(true);
     const top = b.group.position.clone();
     await this.moveTo(this.local(root, top.clone().setY(top.y + 0.05)), 700, 0.02);
@@ -110,8 +127,16 @@ export class Director {
     await this.moveTo(this.local(root, at.clone().setY(at.y + 0.03)), 600);
     await this.moveTo(this.local(root, at), 200, 0);
     await this.setPinch(1);
-    for (let n = 0; n < 120 && Math.abs(p.open - open) > 0.02; n++) {
-      await this.twistBy(Math.sign(p.open - open) * Math.min(0.15, Math.abs(p.open - open) * 4 + 0.02), 90);
+    const deadline = performance.now() + 15000;
+    try {
+      for (let n = 0; Math.abs(p.open - open) > 0.02; n++) {
+        if (n >= 24 || performance.now() > deadline) throw new Error('Valve did not reach its target within the bounded adjustment window.');
+        // Gain below one prevents oscillation when a whole twist arrives in one frame.
+        await this.twistBy(valveCorrection(p.open - open), 90);
+      }
+    } finally {
+      // Always release, including timeout/cancel; never leave a synthetic grab stuck.
+      this.pinchV = 0; this.hand.updatePinchValue(0);
     }
     await this.setPinch(0);
     await this.twistBy(-this.twist, 300);
@@ -126,15 +151,32 @@ export class Director {
       if (s.type === 'valve') await this.valve(s.r, s.c, s.open);
     }
     for (const f of def.fixed) if (f.type === 'valve' && f.solveOpen != null) await this.valve(f.r, f.c, f.solveOpen);
+    if (maxPieces === 99) {
+      const deadline = performance.now() + 15000;
+      while (!this.app.solved) {
+        if (performance.now() > deadline) throw new Error('Puzzle did not confirm solved within 15 seconds.');
+        await this.sampledFrame();
+      }
+    }
   }
 
   // The demo: menu → three lessons → a harder level (with a deliberate leak first) → the Daily Flow.
-  async run() {
+  async run({ lessonsOnly = false, signatureOnly = false } = {}) {
     const app = this.app;
     this.device.hands.left.connected = false;
     this.apply();
     await sleep(2500);
+    if (signatureOnly) {
+      if (app.mode !== 'menu') await this.press('levels');
+      await this.press('level:4');
+      await sleep(1800);
+      await this.solveCurrent();
+      await this.moveTo(this.local(app.board.root, new THREE.Vector3(.27,.08,.20)),700);
+      await sleep(3500);
+      this.log.push('night shift complete'); return true;
+    }
     if (app.mode === 'menu') await this.press('level:0');
+    if (app.mode !== 'play' || app.def.id !== 'l1') throw new Error('The real menu press was not received.');
     await sleep(2200);
     await this.solveCurrent();
     await sleep(3500);
@@ -145,7 +187,8 @@ export class Director {
     await this.press('next');
     await sleep(2500);
     await this.solveCurrent();
-    await sleep(3500);
+    await sleep(1800);
+    if (lessonsOnly) { this.log.push('three lessons complete'); return true; }
     await this.press('levels');
     await sleep(1200);
     await this.press('level:6');
@@ -191,25 +234,53 @@ export class Director {
 }
 
 // Records the canvas (and the game's own audio) to a WebM file the browser downloads.
-export async function record(canvas, sound, run, fileName = 'flowsmith-demo.webm') {
-  const stream = canvas.captureStream(60);
+export async function record(canvas, sound, run, fileName = 'flowsmith-demo.webm', options = {}) {
+  // Burn provenance into the file itself; DOM labels are not in canvas recordings.
+  const output = document.createElement('canvas');
+  output.width = canvas.width; output.height = canvas.height;
+  const ctx = output.getContext('2d');
+
+  const paint = () => {
+    ctx.drawImage(canvas, 0, 0);
+    const size = Math.max(14, Math.round(output.width / 90));
+    ctx.font = `bold ${size}px sans-serif`;
+    const label = 'FLOWSMITH | SCRIPTED EMULATOR | NOT QUEST HARDWARE';
+    ctx.fillStyle = 'rgba(10,25,22,0.9)';
+    ctx.fillRect(12, 12, ctx.measureText(label).width + 24, size + 22);
+    ctx.fillStyle = '#f4dbac'; ctx.fillText(label, 24, size + 23);
+
+  };
+  canvas.__captureFrame = paint;
+  paint();
+  const stream = output.captureStream(30);
+  let dest;
   if (sound.ctx) {
-    const dest = sound.ctx.createMediaStreamDestination();
+    dest = sound.ctx.createMediaStreamDestination();
     sound.master.connect(dest);
     for (const t of dest.stream.getAudioTracks()) stream.addTrack(t);
   }
-  const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m));
-  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 16_000_000 });
+  const mime = ['video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m));
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
   const chunks = [];
   rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   const done = new Promise((r) => (rec.onstop = r));
   rec.start(1000);
-  try { await run(); } finally { rec.stop(); }
+  let timer, onAbort;
+  const interrupted = new Promise(resolve => {
+    onAbort = () => resolve({ complete: false, error: 'Stopped by request' });
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+    timer = setTimeout(() => { resolve({ complete: false, error: 'Automatic capture time limit reached' }); options.cancel?.(); }, options.maxDurationMs ?? 180000);
+    if (options.signal?.aborted) onAbort();
+  });
+  const completed = Promise.resolve().then(run).then(() => ({complete:true}), error => ({complete:false,error:error.message}));
+  const result = await Promise.race([completed, interrupted]);
+  clearTimeout(timer); options.signal?.removeEventListener('abort', onAbort);
+  if (!result.complete) options.cancel?.();
+  if (rec.state !== 'inactive') rec.stop();
   await done;
+  delete canvas.__captureFrame;
+  stream.getTracks().forEach(track => track.stop());
+  if (dest) sound.master.disconnect(dest);
   const blob = new Blob(chunks, { type: 'video/webm' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = fileName;
-  document.body.appendChild(a); a.click();
-  return blob.size;
+  return { ...result, bytes: blob.size, url: URL.createObjectURL(blob), fileName: result.complete ? fileName : fileName.replace('.webm','-partial.webm') };
 }
-void placePiece;

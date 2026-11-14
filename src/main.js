@@ -5,6 +5,8 @@ import { Environment } from './view/env.js';
 import { HandViz } from './view/handviz.js';
 import { HandInput, MouseHand } from './input/hands.js';
 import { Sound } from './audio/audio.js';
+import { setEphemeral } from './util/store.js';
+import { mountArcade } from './view/arcade.js';
 import { CanvasPanel, font } from './view/ui.js';
 
 const params = new URLSearchParams(location.search);
@@ -35,10 +37,17 @@ document.getElementById('stage').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.01, 50);
 camera.position.set(0, 1.22, 0.32);
-camera.lookAt(0, 0.82, -0.32);
+camera.lookAt(0, 0.91, -0.32);
 
 const env = new Environment(scene, renderer);
+let powerDiagnostic=null;
+if(import.meta.env.DEV && params.has('debugpower')) {
+  powerDiagnostic=document.createElement('output');powerDiagnostic.id='power-diagnostic';
+  Object.assign(powerDiagnostic.style,{position:'fixed',left:'12px',bottom:'48px',zIndex:20,color:'white',background:'#000d',font:'11px monospace',padding:'7px',pointerEvents:'none'});
+  document.body.appendChild(powerDiagnostic);
+}
 const sound = new Sound();
+setEphemeral(import.meta.env.DEV && params.has('director'));
 const app = new App(scene, sound);
 app.anchor.scale.setScalar(1.25);
 const handViz = new HandViz(scene);
@@ -48,11 +57,22 @@ window.flowsmith = app; // handy for tests and scripted capture
 // Desktop placement: the board sits on the table in front of the preview camera.
 app.anchor.position.set(0, 0.82, -0.32);
 env.followAnchor(app.anchor);
+env.connectSource(app.board);
+app.onEvent(e => { if(e.type==='level') env.connectSource(app.board); });
 const boardPlane = new THREE.Plane();
 const mouse = new MouseHand(renderer.domElement, camera, () => {
   boardPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, app.anchor.position.y + 0.02, 0));
   return boardPlane;
-});
+}, { list: () => app.mode === 'menu' ? app.menu.buttons : app.board.buttons, press: (id) => app.onButton(id) });
+mountArcade(app, renderer, sound);
+function frameDesktop() {
+  if (renderer.xr.isPresenting) return;
+  camera.zoom = app.mode === 'menu' ? 1.1 : app.st.rows > 4 ? 1.05 : 1.35;
+  camera.updateProjectionMatrix();
+}
+app.onEvent(frameDesktop); frameDesktop();
+renderer.xr.addEventListener('sessionstart', () => { camera.zoom = 1; camera.updateProjectionMatrix(); });
+renderer.xr.addEventListener('sessionend', frameDesktop);
 
 // Seat the board in front of the player: a forearm's reach ahead, below the eyes, facing them.
 let recenterIn = -1;
@@ -119,7 +139,7 @@ pickMode().then((m) => {
   mode = m;
   enterBtn.textContent = m === 'immersive-ar' ? 'Enter (passthrough)' : m ? 'Enter VR' : 'Play on desktop';
   enterBtn.disabled = false;
-  if (!m) note.textContent = 'No headset found: playing with the mouse. Click and drag pieces, scroll or press R to turn them.';
+  if (!m) note.textContent = 'No headset found: playing with the mouse. Drag pipes. While holding a pipe, scroll or press R to turn it. Hold a red valve and scroll to tune.';
 });
 enterBtn.addEventListener('click', async () => {
   sound.start();
@@ -146,12 +166,49 @@ enterBtn.addEventListener('click', async () => {
 });
 
 // Scripted capture for the demo video (?emulate&vr&director). Exposed for the capture script to start.
-if (params.has('director') && window.__xrdevice) {
-  window.__startDirector = async (recordIt = true) => {
+if (import.meta.env.DEV && params.has('director') && window.__xrdevice) {
+  const capture = document.createElement('button');
+  capture.id = 'record-demo';
+  capture.textContent = params.has('showcase') ? 'Record The Night Shift (scripted emulator)' : 'Record 3 lessons (scripted emulator)';
+  capture.title = 'Maximum 110 seconds. Synthetic hands, not real Quest footage.';
+  document.body.appendChild(capture);
+  const disclosure = document.createElement('div');
+  disclosure.id = 'capture-disclosure';
+  disclosure.textContent = 'SCRIPTED EMULATOR • NOT QUEST HARDWARE FOOTAGE';
+  document.body.appendChild(disclosure);
+  const stop = document.createElement('button');
+  stop.id = 'stop-demo'; stop.textContent = 'Stop & save partial'; stop.hidden = true;
+  document.body.appendChild(stop);
+  const download = document.createElement('a'); download.id = 'save-demo'; download.hidden = true;
+  document.body.appendChild(download);
+  let controller;
+  download.addEventListener('click', () => { disclosure.textContent = 'Download requested: ' + download.download + '. Keep this page open until the file is verified.'; });
+  stop.addEventListener('click', () => { controller?.abort(); stop.disabled = true; stop.textContent = 'Finishing recording...'; });
+  capture.addEventListener('click', async () => {
+    if (!renderer.xr.isPresenting) { capture.textContent = 'Enter VR first, then record'; return; }
+    capture.disabled = true; stop.hidden = false; stop.disabled = false; stop.textContent = 'Stop & save partial';
+    download.hidden = true; controller = new AbortController();
+    capture.textContent = 'Recording ' + (params.has('showcase') ? 'The Night Shift' : '3 lessons') + ' (110-second limit)';
+    try {
+      const result = await window.__startDirector(true, controller);
+      download.href = result.url; download.download = result.fileName;
+      download.textContent = (result.complete ? 'Save completed WebM' : 'Save partial WebM') + ' (' + (result.bytes / 1048576).toFixed(2) + ' MB)';
+      download.title = result.fileName;
+      disclosure.textContent = result.fileName + ' - keep this page open until the saved file is verified.';
+      download.hidden = false;
+      capture.textContent = result.complete ? 'Recording ready to save' : 'Partial ready: ' + result.error;
+    } catch (err) { capture.textContent = 'Recording failed: ' + err.message; }
+    finally { capture.disabled = false; stop.hidden = true; }
+  });
+  window.__startDirector = async (recordIt = true, abort = new AbortController()) => {
     const { Director, record } = await import('./director.js');
-    const d = new Director(app, window.__xrdevice, sound);
+    if (!(await env.assetReady)) throw new Error('Authored landmark did not load; check the local asset before recording.');
+    app.showMenu();
+    const d = new Director(app, window.__xrdevice, sound, abort.signal);
     window.__director = d;
-    return recordIt ? record(renderer.domElement, sound, () => d.run()) : d.run();
+    const cancel = () => { abort.abort(); d.pinchV = 0; d.hand.updatePinchValue(0); };
+    const fileName = (params.has('showcase') ? 'flowsmith-night-shift-' : 'flowsmith-three-lessons-') + new Date().toISOString().replace(/[:.]/g, '-') + '.webm';
+    return recordIt ? record(renderer.domElement, sound, () => d.run({ lessonsOnly: !params.has('showcase'), signatureOnly: params.has('showcase') }), fileName, { signal: abort.signal, cancel, maxDurationMs: 110000 }) : d.run({ lessonsOnly: !params.has('showcase'), signatureOnly: params.has('showcase') });
   };
 }
 
@@ -191,8 +248,10 @@ renderer.setAnimationLoop((t, frame) => {
   app.update(dt, states, now, viewCam);
   env.followAnchor(app.anchor);
   env.setDusk(app.mode === 'play' ? app.board.lit || 0 : 0);
+  if(powerDiagnostic) powerDiagnostic.textContent='V5 POWER bound='+env.powerMaterials.length+' flow='+env.currentFlow.toFixed(3)+' '+env.powerMaterials.map(m=>m.name+':#'+m.color.getHexString()+'/e'+m.emissiveIntensity.toFixed(2)).join(' ');
   handViz.update(states, viewCam);
   renderer.render(scene, camera);
+  renderer.domElement.__captureFrame?.();
   stats.frames++;
   const pn = performance.now();
   if (pn - stats.t0 > 1000) {
