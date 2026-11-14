@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { bakedSurface, glassify, seaMaterial } from './looks.js';
 
 export const T = 0.055; // tile size in metres
 export const PIPE_Y = 0.014;
@@ -34,12 +35,15 @@ export function mat(name) {
     case 'copper': m = new THREE.MeshStandardMaterial({ color: COLORS.copper, metalness: 0.75, roughness: 0.27 }); break;
     case 'copperLocked': m = new THREE.MeshStandardMaterial({ color: COLORS.copperDark, metalness: 0.35, roughness: 0.55 }); break;
     case 'brass': m = new THREE.MeshStandardMaterial({ color: COLORS.brass, metalness: 0.72, roughness: 0.28 }); break;
-    case 'glass': m = new THREE.MeshStandardMaterial({ color: 0xf2fbff, metalness: 0, roughness: 0.05, transparent: true, opacity: 0.22, depthWrite: false, emissive: 0x9fdcff, emissiveIntensity: 0.12 }); break;
+    case 'glass': m = glassify(new THREE.MeshStandardMaterial({ color: 0xf2fbff, metalness: 0, roughness: 0.04, transparent: true, opacity: 0.16, depthWrite: false, emissive: 0x9fdcff, emissiveIntensity: 0.1 })); break;
     case 'water': m = new THREE.MeshStandardMaterial({ color: COLORS.water, emissive: 0x0b3a77, roughness: 0.2, metalness: 0 }); break;
-    case 'sea': m = new THREE.MeshStandardMaterial({ color: COLORS.waterDeep, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.9 }); break;
-    case 'wood': m = new THREE.MeshStandardMaterial({ color: COLORS.wood, roughness: 0.8 }); break;
-    case 'woodDark': m = new THREE.MeshStandardMaterial({ color: COLORS.woodDark, roughness: 0.85 }); break;
+    case 'sea': m = seaMaterial(); break;
+    case 'wood': m = bakedSurface('walnut', { color: 0xffffff, roughness: 0.42, metalness: 0.05 }, { normalScale: 0.6 }); break;
+    case 'woodDark': m = bakedSurface('walnut', { color: 0x8a8580, roughness: 0.5, metalness: 0.05 }, { normalScale: 0.6 }); break;
     case 'stone': m = new THREE.MeshStandardMaterial({ color: COLORS.stone, roughness: 0.95, flatShading: true }); break;
+    case 'boulder': m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0 }); break;
+    case 'slate': m = bakedSurface('slate_tile', { roughness: 0.62, metalness: 0.08 }, { normalScale: 1.4 }); break;
+    case 'felt': m = bakedSurface('felt', { roughness: 1 }); break;
     case 'roof': m = new THREE.MeshStandardMaterial({ color: COLORS.roof, roughness: 0.7, flatShading: true }); break;
     case 'wheelRed': m = new THREE.MeshStandardMaterial({ color: COLORS.wheel, roughness: 0.5, metalness: 0.2 }); break;
     case 'mound': m = new THREE.MeshStandardMaterial({ color: 0x516369, roughness: 0.9, flatShading: true }); break;

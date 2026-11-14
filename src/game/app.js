@@ -234,7 +234,7 @@ export class App {
     const body = this.hintText && !this.solved ? this.hintText : (isLesson && !this.solved && st.result.placed === 0 && this.lessonStep ? this.def.hint : s.body);
     const name = this.levelIndex === 'daily' ? `Daily Flow · ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : `${this.levelIndex + 1}. ${this.def.name}`;
     const acc = accuracy(st.result);
-    const stars = this.solved ? '★'.repeat(this.solvedStars) + '☆'.repeat(3 - this.solvedStars) : (st.result.mills.some((m) => m.flow > 0.02) ? `${st.result.mills.filter((m) => m.status === 'ok').length}/${st.result.mills.length} mills green` : '');
+    const stars = this.solved ? '★'.repeat(this.solvedStars) + '☆'.repeat(3 - this.solvedStars) : (st.result.mills.length ? `${st.result.mills.filter((m) => m.status === 'ok').length}/${st.result.mills.length} ${st.result.mills.length === 1 ? 'mill' : 'mills'} green` : '');
     const footer = this.solved
       ? (this.levelIndex === 'daily' ? `Daily: ${st.result.placed} pieces · ${Math.round(this.elapsed)} s · flow ${acc}% · streak ${this.progress.daily?.streak ?? 1}`
         : `★ solved   ${this.hintShown ? '☆' : '★'} no hints   ${acc >= PRECISE ? '★' : '☆'} dead-on flow ${acc}%` + (acc < PRECISE ? '  (twist toward the centre line)' : ''))

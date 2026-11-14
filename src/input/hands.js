@@ -132,13 +132,18 @@ export class MouseHand {
   constructor(dom, camera, getBoardPlane, buttons = null) {
     this.state = makeHandState('right');
     this.state.kind = 'mouse';
-    this.camera = camera; this.getBoardPlane = getBoardPlane;
+    this.camera = camera; this.getBoardPlane = getBoardPlane; this.dom = dom;
     this.ndc = new THREE.Vector2(); this.ray = new THREE.Raycaster();
-    this.downReq = false; this.wheel = 0; this.active = false;
-    dom.addEventListener('pointermove', (e) => { this.setNdc(e, dom); this.active = true; });
+    this.downReq = false; this.wheel = 0; this.active = false; this.dragX = 0; this.lastX = null;
+    dom.addEventListener('pointermove', (e) => {
+      this.setNdc(e, dom); this.active = true;
+      // Sideways drag while a valve is held tunes it (touch has no scroll wheel; it also feels right with a mouse).
+      if (this.downReq && this.lastX != null) this.dragX += e.clientX - this.lastX;
+      this.lastX = e.clientX;
+    });
     dom.addEventListener('pointerdown', (e) => {
       if (e.button != null && e.button !== 0) return;
-      this.setNdc(e, dom); this.active = true;
+      this.setNdc(e, dom); this.active = true; this.lastX = e.clientX; this.dragX = 0;
       this.ray.setFromCamera(this.ndc, camera);
       // Hit the rendered button/tag, not its projection onto the pipe plane.
       const button = buttons && desktopButtonAt(this.ray, buttons.list());
@@ -146,6 +151,7 @@ export class MouseHand {
       this.downReq = true;
     });
     window.addEventListener('pointerup', () => { this.downReq = false; });
+    window.addEventListener('pointercancel', () => { this.downReq = false; });
     dom.addEventListener('wheel', (e) => { this.wheel += Math.sign(e.deltaY) * (Math.PI / 12); e.preventDefault(); }, { passive: false });
     window.addEventListener('keydown', (e) => { if (e.key === 'r' || e.key === 'R') this.wheel += Math.PI / 3 + 0.01; });
   }
@@ -161,6 +167,9 @@ export class MouseHand {
     const hit = new THREE.Vector3();
     if (plane && this.ray.ray.intersectPlane(plane, hit)) h.pinchPoint.copy(hit);
     h.indexTip.copy(h.pinchPoint);
+    // A full-width swipe is about one full turn of the valve.
+    if (h.ix?.mode === 'valve') this.wheel -= this.dragX * (Math.PI * 1.5 / Math.max(320, this.dom?.clientWidth || 800));
+    this.dragX = 0;
     h.twistOverride = this.wheel; this.wheel = 0;
     const wasDown = h.pinch.down;
     h.pinch = { down: this.downReq, started: this.downReq && !wasDown, ended: !this.downReq && wasDown };

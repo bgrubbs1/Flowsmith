@@ -3,6 +3,22 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PIECES, N, E, S, W } from '../sim/pieces.js';
 import { T, PIPE_Y, PIPE_R, mat, windowMat } from './materials.js';
+import { BOULDERS } from './rockData.js';
+
+// Sculpted boulders from tools/blender/bake_assets.py: AO and moss are in the vertex colours.
+const boulderGeo = [];
+function boulder(k) {
+  k %= BOULDERS.length;
+  if (!boulderGeo[k]) {
+    const b = BOULDERS[k], g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(Float32Array.from(b.pos, (v) => v / 1000), 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(Float32Array.from(b.nor, (v) => v / 127), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(Float32Array.from(b.col, (v) => (v / 255) ** 2.2), 3));
+    g.setIndex(new THREE.BufferAttribute(b.idx, 1));
+    boulderGeo[k] = g;
+  }
+  return new THREE.Mesh(boulderGeo[k], mat('boulder'));
+}
 
 const ARM = { [N]: [0, -1], [E]: [1, 0], [S]: [0, 1], [W]: [-1, 0] };
 
@@ -42,15 +58,16 @@ export function buildPiece(type, opts = {}) {
   const locked = !!opts.locked;
   const copper = mat(locked ? 'copperLocked' : 'copper');
   if (type === 'rock') {
-    const g = new THREE.DodecahedronGeometry(0.018, 0);
-    const m = new THREE.Mesh(g, mat('stone'));
-    m.scale.set(1.1, 0.8, 1);
-    m.position.y = 0.012;
-    m.rotation.y = (opts.seed || 0) * 2.1;
+    const seed = opts.seed || 0;
+    const m = boulder(seed);
+    m.scale.setScalar(0.019);
+    m.position.y = 0.0085;
+    m.rotation.y = seed * 2.1;
     group.add(m);
-    const g2 = new THREE.DodecahedronGeometry(0.011, 0);
-    const m2 = new THREE.Mesh(g2, mat('stone'));
-    m2.position.set(0.014, 0.007, 0.01);
+    const m2 = boulder(seed + 1);
+    m2.scale.setScalar(0.0105);
+    m2.position.set(0.015, 0.005, 0.011);
+    m2.rotation.y = seed * 1.3 + 1;
     group.add(m2);
     return { group, parts };
   }
@@ -58,9 +75,10 @@ export function buildPiece(type, opts = {}) {
     // A spring: a ring of stones around a bubbling basin.
     for (let k = 0; k < 5; k++) {
       const a = (k / 5) * Math.PI * 2 + 0.4;
-      const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.0085 + 0.002 * (k % 2), 0), mat('stone'));
-      s.position.set(Math.cos(a) * 0.017, 0.007, Math.sin(a) * 0.017);
-      s.rotation.set(k, k * 2, 0);
+      const s = boulder(k);
+      s.scale.setScalar(0.0085 + 0.002 * (k % 2));
+      s.position.set(Math.cos(a) * 0.017, 0.005, Math.sin(a) * 0.017);
+      s.rotation.set(0, k * 2, 0);
       group.add(s);
     }
     const basin = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.012, 0.01, 20), mat('iron'));

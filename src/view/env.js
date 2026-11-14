@@ -3,15 +3,26 @@ import * as THREE from 'three';
 import { bindPoweredMaterials, setMaterialPower } from './power.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { skyDome, lightPool, HORIZON, bakedSurface, LOOK } from './looks.js';
+
+// Reflections come from the same dusk sky plus a warm lamp bank, so copper and glass pick up amber highlights.
+function duskEnvironment(renderer){
+  const s=new THREE.Scene();s.add(skyDome(10));
+  const lamp=new THREE.MeshBasicMaterial({color:new THREE.Color(0xffb35c).multiplyScalar(5)});
+  const cool=new THREE.MeshBasicMaterial({color:new THREE.Color(0x9cc8ff).multiplyScalar(1.6)});
+  for(const [x,y,z,w,h,m] of [[-2.2,3,1.5,1.6,.6,lamp],[2.6,2.4,-1,.8,1.4,cool],[0,4.5,0,3,3,cool],[1.8,1.2,2.4,1,.5,lamp]]){const p=new THREE.Mesh(new THREE.PlaneGeometry(w,h),m);p.position.set(x,y,z);p.lookAt(0,0,0);s.add(p);}
+  const pmrem=new THREE.PMREMGenerator(renderer);const tex=pmrem.fromScene(s,.035).texture;pmrem.dispose();return tex;
+}
 export class Environment {
   constructor(scene, renderer) {
-    this.scene=scene;scene.background=new THREE.Color(0x09131e);scene.fog=new THREE.Fog(0x09131e,2,7);
-    const pmrem=new THREE.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(new RoomEnvironment(),.04).texture;scene.environmentIntensity=.55;pmrem.dispose();
-    this.hemi=new THREE.HemisphereLight(0xadd6ef,0x172030,1.1);this.sun=new THREE.DirectionalLight(0xffd5a1,2.5);this.sun.position.set(-.6,2,.7);
-    const rim=new THREE.DirectionalLight(0x7fb9eb,1.5);rim.position.set(1,1,-2);scene.add(this.hemi,this.sun,rim);
+    this.scene=scene;scene.background=HORIZON.clone();scene.fog=new THREE.Fog(HORIZON,3,16);
+    scene.environment=duskEnvironment(renderer);scene.environmentIntensity=.7;
+    // Warm lamplight from over the left shoulder, cool dusk fill, a blue rim to lift silhouettes off the sky.
+    this.hemi=new THREE.HemisphereLight(0x9fb8e6,0x2a1c14,.9);this.sun=new THREE.DirectionalLight(0xffcf96,2.9);this.sun.position.set(-.7,2,.9);
+    const rim=new THREE.DirectionalLight(0x8fbfff,1.8);rim.position.set(1.2,1.1,-2);scene.add(this.hemi,this.sun,rim);
     this.room=new THREE.Group();scene.add(this.room);this.table=new THREE.Group();scene.add(this.table);
-    const slate=new THREE.MeshStandardMaterial({color:0x172633,roughness:.65,metalness:.25});
+    // The cabinet top is oiled walnut (baked in Blender), the rest dark painted steel.
+    const slate=bakedSurface('walnut',{color:0xffffff,roughness:.62,metalness:0,envMapIntensity:.5},{repeat:[2,2],normalScale:.5});
     const iron=new THREE.MeshStandardMaterial({color:0x243440,roughness:.66,metalness:.38});
     const brass=new THREE.MeshStandardMaterial({color:0xb58b52,roughness:.3,metalness:.72});
     const copper=new THREE.MeshStandardMaterial({color:0x80563d,roughness:.32,metalness:.65});
@@ -36,9 +47,13 @@ export class Environment {
     for(let i=0;i<8;i++){const a=i*Math.PI/4;box(.003,.004,.006,.29+Math.cos(a)*.025,.008,-.08+Math.sin(a)*.025,brass);}
     target=this.table;
     for(const x of [-.354,.354])box(.003,.004,.54,x,-.025,.03,this.glow);
-    const floor=new THREE.Mesh(new THREE.PlaneGeometry(14,14),new THREE.MeshStandardMaterial({color:0x0d1824,roughness:.72,metalness:.15}));floor.rotation.x=-Math.PI/2;this.room.add(floor);
+    this.room.add(skyDome());
+    const floor=new THREE.Mesh(new THREE.CircleGeometry(16,48),new THREE.MeshStandardMaterial({color:0x14141a,roughness:.8,metalness:0,envMapIntensity:.35}));floor.rotation.x=-Math.PI/2;this.room.add(floor);
+    this.pool=lightPool(2.2,0xffb46a,.22);this.pool.position.set(0,.002,-.3);this.room.add(this.pool);
     // Repeated vaulted bays add perspective, with no animated scenery cost.
-    for(let i=0;i<5;i++){const z=-1.35-i*.8;for(const x of [-1.3,1.3]){const pier=new THREE.Mesh(new THREE.BoxGeometry(.09,2.5,.12),iron);pier.position.set(x,1.25,z);this.room.add(pier);}const arch=new THREE.Mesh(new THREE.TorusGeometry(1.3,.045,6,40,Math.PI),iron);arch.position.set(0,2.5,z);this.room.add(arch);}
+    // An open colonnade of brick piers and arches marching toward the dusk horizon.
+    const brickArch=new THREE.MeshStandardMaterial({color:0x3a2620,roughness:.85});
+    for(let i=0;i<5;i++){const z=-5-i*1.6;for(const x of [-3.4,3.4]){const pier=new THREE.Mesh(new THREE.BoxGeometry(.18,2.6,.22),brickArch);pier.position.set(x,1.3,z);this.room.add(pier);const cap=new THREE.Mesh(new THREE.BoxGeometry(.24,.06,.28),brass);cap.position.set(x,2.62,z);this.room.add(cap);}const arch=new THREE.Mesh(new THREE.TorusGeometry(3.4,.12,8,40,Math.PI),brickArch);arch.position.set(0,2.6,z);this.room.add(arch);}
     this.powerMaterials=[];this.currentFlow=0;
     this.assetReady=new GLTFLoader().loadAsync(import.meta.env.BASE_URL+'assets/flowsmith-waterworks-landmark.glb').then(gltf=>{
       const landmark=gltf.scene;landmark.name='authored-waterworks';landmark.position.set(0,0,-.30);
@@ -63,7 +78,7 @@ export class Environment {
     this.feed=new THREE.Mesh(new THREE.TubeGeometry(curve,32,.0065,8,false),new THREE.MeshStandardMaterial({color:0xa7794c,metalness:.7,roughness:.3}));
     this.feed.name='reservoir-supply-line';this.table.add(this.feed);
   }
-  setPassthrough(on){this.room.visible=!on;this.scene.background=on?null:new THREE.Color(0x09131e);this.scene.fog=on?null:new THREE.Fog(0x09131e,2,7);}
+  setPassthrough(on){this.room.visible=!on;this.scene.background=on?null:HORIZON.clone();this.scene.fog=on?null:new THREE.Fog(HORIZON,3,16);}
   followAnchor(anchor){this.table.position.copy(anchor.position);this.table.rotation.y=anchor.rotation.y;}
-  setDusk(f){this.currentFlow=f;for(const material of this.powerMaterials||[])setMaterialPower(material,f);this.hemi.intensity=1.1-.15*f;this.sun.intensity=2.5-.35*f;this.glow.emissiveIntensity=.7+f*2;}
+  setDusk(f){this.currentFlow=f;for(const material of this.powerMaterials||[])setMaterialPower(material,f);this.hemi.intensity=1.1-.15*f;this.sun.intensity=2.5-.35*f;this.glow.emissiveIntensity=.7+f*2;if(this.pool)this.pool.material.opacity=.22+f*.16;LOOK.lit.value=f;}
 }

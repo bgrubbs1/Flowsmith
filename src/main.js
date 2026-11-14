@@ -8,6 +8,8 @@ import { Sound } from './audio/audio.js';
 import { setEphemeral } from './util/store.js';
 import { mountArcade } from './view/arcade.js';
 import { CanvasPanel, font } from './view/ui.js';
+import { desktopFraming } from './view/framing.js';
+import { LOOK } from './view/looks.js';
 
 const params = new URLSearchParams(location.search);
 if (params.has('emulate')) {
@@ -24,7 +26,15 @@ if (params.has('emulate')) {
   window.__xrdevice = device;
 }
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+// A browser that cannot draw 3D (graphics off, very old device) gets a plain explanation, not a frozen button.
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' }); }
+catch (err) {
+  const enter = document.getElementById('enter');
+  enter.textContent = '3D graphics are off in this browser'; enter.disabled = true;
+  document.getElementById('note').textContent = 'Flowsmith needs WebGL. Open this page on a Meta Quest, or in Chrome, Edge, Firefox or Safari with hardware acceleration turned on.';
+  throw err;
+}
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -67,8 +77,11 @@ const mouse = new MouseHand(renderer.domElement, camera, () => {
 mountArcade(app, renderer, sound);
 function frameDesktop() {
   if (renderer.xr.isPresenting) return;
-  camera.zoom = app.mode === 'menu' ? 1.1 : app.st.rows > 4 ? 1.05 : 1.35;
+  const f = desktopFraming(camera.aspect, app.mode, app.st?.rows ?? 4);
+  camera.position.set(...f.position); camera.lookAt(...f.target);
+  camera.zoom = f.zoom;
   camera.updateProjectionMatrix();
+  document.body.classList.toggle('portrait', f.portrait > 0.5);
 }
 app.onEvent(frameDesktop); frameDesktop();
 renderer.xr.addEventListener('sessionstart', () => { camera.zoom = 1; camera.updateProjectionMatrix(); });
@@ -128,18 +141,24 @@ app.onEvent((e) => { if (e.type === 'recenter') recenterIn = 2; });
 const enterBtn = document.getElementById('enter');
 const note = document.getElementById('note');
 let mode = null;
+// Some browsers never answer isSessionSupported (no runtime, blocked permission). Give each check
+// 1.5 s, so the start button always turns into something you can press.
+const supported = (m) => Promise.race([navigator.xr.isSessionSupported(m).catch(() => false), new Promise((r) => setTimeout(() => r(false), 1500))]);
 async function pickMode() {
   if (!navigator.xr) return null;
-  if (params.has('vr') && await navigator.xr.isSessionSupported('immersive-vr').catch(() => false)) return 'immersive-vr';
-  if (await navigator.xr.isSessionSupported('immersive-ar').catch(() => false)) return 'immersive-ar';
-  if (await navigator.xr.isSessionSupported('immersive-vr').catch(() => false)) return 'immersive-vr';
+  if (params.has('vr') && await supported('immersive-vr')) return 'immersive-vr';
+  if (await supported('immersive-ar')) return 'immersive-ar';
+  if (await supported('immersive-vr')) return 'immersive-vr';
   return null;
 }
+const touchFirst = matchMedia('(pointer: coarse)').matches;
 pickMode().then((m) => {
   mode = m;
-  enterBtn.textContent = m === 'immersive-ar' ? 'Enter (passthrough)' : m ? 'Enter VR' : 'Play on desktop';
+  enterBtn.textContent = m === 'immersive-ar' ? 'Enter (passthrough)' : m ? 'Enter VR' : touchFirst ? 'Play on this screen' : 'Play in the browser';
   enterBtn.disabled = false;
-  if (!m) note.textContent = 'No headset found: playing with the mouse. Drag pipes. While holding a pipe, scroll or press R to turn it. Hold a red valve and scroll to tune.';
+  if (!m) note.textContent = touchFirst
+    ? 'No headset here, so it plays by touch: drag a pipe onto the board, tap a pipe to turn it, slide a red valve sideways to tune it.'
+    : 'No headset here, so it plays with the mouse: drag a pipe onto the board, click it (or press R while holding) to turn it, drag a red valve sideways or scroll to tune it.';
 });
 enterBtn.addEventListener('click', async () => {
   sound.start();
@@ -224,6 +243,7 @@ const stats = { frames: 0, t0: performance.now(), fps: 0 };
 window.__fps = stats;
 renderer.setAnimationLoop((t, frame) => {
   const dt = Math.min(0.05, clock.getDelta());
+  LOOK.time.value += dt;
   const now = t / 1000;
   let states;
   if (frame && renderer.xr.isPresenting) {
@@ -266,7 +286,7 @@ renderer.setAnimationLoop((t, frame) => {
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
+  frameDesktop();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
