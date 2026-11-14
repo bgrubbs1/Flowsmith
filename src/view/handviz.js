@@ -31,6 +31,7 @@ export class HandViz {
       const dot = new THREE.Mesh(new THREE.CircleGeometry(0.0045, 20), new THREE.MeshBasicMaterial({ color: 0xffd36b, side: THREE.DoubleSide, depthTest: false }));
       dot.renderOrder = 11;
       cursor.add(dot);
+      joints.visible = bones.visible = cursor.visible = false;
       joints.frustumCulled = bones.frustumCulled = false;
       this.group.add(joints, bones, cursor);
       return { joints, bones, cursor, dot };
