@@ -151,7 +151,14 @@ export class MouseHand {
       this.downReq = true;
     });
     window.addEventListener('pointerup', () => { this.downReq = false; });
-    window.addEventListener('pointercancel', () => { this.downReq = false; });
+    const cancelDrag = () => {
+      this.cancelRequested = true;
+      this.downReq = false;
+      this.wheel = 0; this.dragX = 0; this.lastX = null;
+    };
+    window.addEventListener('pointercancel', cancelDrag);
+    // A tab/app switch may swallow pointerup; never resume with a stuck grab or stale twist.
+    window.addEventListener('blur', cancelDrag);
     dom.addEventListener('wheel', (e) => { this.wheel += Math.sign(e.deltaY) * (Math.PI / 12); e.preventDefault(); }, { passive: false });
     window.addEventListener('keydown', (e) => { if (e.key === 'r' || e.key === 'R') this.wheel += Math.PI / 3 + 0.01; });
   }
@@ -172,7 +179,11 @@ export class MouseHand {
     this.dragX = 0;
     h.twistOverride = this.wheel; this.wheel = 0;
     const wasDown = h.pinch.down;
-    h.pinch = { down: this.downReq, started: this.downReq && !wasDown, ended: !this.downReq && wasDown };
+    // Keep cancellation distinct from release: focus loss must not commit a tap or drop.
+    const canceled = !!this.cancelRequested;
+    const down = this.downReq && !canceled;
+    h.pinch = { down, started: down && !wasDown, ended: !down && wasDown, canceled };
+    this.cancelRequested = false;
     h.palmUp = false;
   }
 }

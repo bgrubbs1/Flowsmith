@@ -87,6 +87,12 @@ export class Interaction {
     for (const h of hands) {
       if (!h.ix) h.ix = { mode: 'idle' };
       const ix = h.ix;
+      if (h.pinch.canceled) {
+        if (ix.mode !== 'idle') this.finish(h, now, true);
+        ix.hist = [];
+        ix.lostAt = null;
+        continue;
+      }
       if (!h.present) {
         if (ix.mode !== 'idle') {
           ix.lostAt ??= now;
@@ -117,7 +123,13 @@ export class Interaction {
       }
       // Turning the palm to the face mid-grab (the system gesture) lets go after a moment.
       if (h.palmFaceSince && performance.now() - h.palmFaceSince > 300) { this.finish(h, now, true); continue; }
-      if (h.pinch.ended || !h.pinch.down) { this.finish(h, now, false, ix.hist && ix.hist.length ? ix.hist[0].p : pL); continue; }
+      if (h.pinch.ended || !h.pinch.down) {
+        // Pinch release jitters on tracked hands; mouse/touch release has an exact pointer target.
+        // Applying the hand's 80 ms lag to a fast drag drops into the previously crossed socket.
+        const drop = h.kind === 'mouse' ? pL : (ix.hist?.length ? ix.hist[0].p : pL);
+        this.finish(h, now, false, drop);
+        continue;
+      }
       this.drag(h, pL, dt, now);
       if (ix.mode === 'hold') hoverShown = true;
     }
