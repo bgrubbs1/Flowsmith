@@ -108,21 +108,31 @@ function recenter() {
 function snapToTable(frame, refSpace) {
   const planes = frame.detectedPlanes;
   if (!planes || !planes.size) return;
-  let best = null, bestD = 0.8;
+  let best = null, bestD = 0.8, bestHeightDelta = Infinity;
   for (const plane of planes) {
     if (plane.orientation !== 'horizontal') continue;
     const pose = frame.getPose(plane.planeSpace, refSpace);
     if (!pose) continue;
     const p = pose.transform.position;
-    if (p.y < 0.45 || p.y > 1.1) continue;
+    if (![p.x, p.y, p.z].every(Number.isFinite) || p.y < 0.45 || p.y > 1.1) continue;
     let near = Math.hypot(p.x - app.anchor.position.x, p.z - app.anchor.position.z);
-    // A big table's centre can be far away: also accept it when the board sits inside its outline.
-    if (plane.polygon?.length) {
+    // A reported outline is authoritative: do not lower the board onto a nearby table it is outside.
+    const polygon = plane.polygon;
+    const usablePolygon = polygon?.length >= 3 && polygon.every(v => Number.isFinite(v.x) && Number.isFinite(v.z));
+    // Runtimes without a usable outline retain the conservative <0.8 m centre-distance fallback.
+    if (usablePolygon) {
       const inv = new THREE.Matrix4().fromArray(pose.transform.inverse.matrix);
       const lp = app.anchor.position.clone().applyMatrix4(inv);
-      if (insidePolygon(lp.x, lp.z, plane.polygon)) near = 0;
+      if (!insidePolygon(lp.x, lp.z, polygon)) continue;
+      near = 0;
     }
-    if (near < bestD) { bestD = near; best = p.y; }
+    const heightDelta = Math.abs(p.y + 0.025 - app.anchor.position.y);
+    // Overlapping surfaces often share horizontal distance zero. Prefer the smallest vertical move,
+    // with a deterministic height tie-break instead of depending on XRPlaneSet iteration order.
+    if (near < bestD || (best != null && near === bestD &&
+        (heightDelta < bestHeightDelta || (heightDelta === bestHeightDelta && p.y > best)))) {
+      bestD = near; bestHeightDelta = heightDelta; best = p.y;
+    }
   }
   // Float the board a little above the real table so fingertips don't knock the surface while pinching.
   if (best != null) app.anchor.position.y += (best + 0.025 - app.anchor.position.y) * 0.2;
@@ -166,25 +176,36 @@ pickMode().then((m) => {
 enterBtn.addEventListener('click', async () => {
   sound.start();
   if (!mode) { document.body.classList.add('playing'); return; }
+  let session, sessionEnded = false;
+  const restoreDesktop = () => {
+    sessionEnded = true;
+    document.body.classList.remove('playing');
+    app.passthroughAvailable = false;
+    env.setPassthrough(false);
+    handViz.full = true;
+    recenterIn = -1; snapUntil = 0;
+    app.anchor.position.set(0, 0.82, -0.32); app.anchor.rotation.set(0, 0, 0);
+    env.followAnchor(app.anchor);
+  };
   try {
-    const session = await navigator.xr.requestSession(mode, { requiredFeatures: ['local-floor'], optionalFeatures: ['hand-tracking', 'plane-detection'] });
+    session = await navigator.xr.requestSession(mode, { requiredFeatures: ['local-floor'], optionalFeatures: ['hand-tracking', 'plane-detection'] });
+    session.addEventListener('end', restoreDesktop);
     app.passthroughAvailable = mode === 'immersive-ar';
     applyWorld();
     if (app.mode === 'menu') app.showMenu();
     renderer.setClearColor(0x000000, 0);
     await renderer.xr.setSession(session);
+    if (sessionEnded) throw new Error('Headset session ended before startup completed. Try again.');
     session.updateTargetFrameRate?.(72)?.catch?.(() => {});
     document.body.classList.add('playing');
     recenterIn = 8;
-    session.addEventListener('end', () => {
-      document.body.classList.remove('playing');
-      app.passthroughAvailable = false;
-      env.setPassthrough(false);
-      handViz.full = true;
-      app.anchor.position.set(0, 0.82, -0.32); app.anchor.rotation.set(0, 0, 0);
-      env.followAnchor(app.anchor);
-    });
   } catch (err) {
+    // requestSession may succeed before renderer attachment fails. Do not leave that session open
+    // or the desktop scene in passthrough mode; a retry must start from a clean application state.
+    if (session) {
+      try { if (!sessionEnded) await session.end(); } catch { /* Still restore local state if the runtime already ended. */ }
+      restoreDesktop();
+    }
     note.textContent = 'Could not start the headset session: ' + err.message;
   }
 });
