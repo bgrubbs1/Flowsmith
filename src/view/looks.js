@@ -48,7 +48,7 @@ export function glassify(material, rim = new THREE.Color(0xbfe9ff), strength = 0
 // ---------------------------------------------------------------- flowing water inside the pipes
 // Bands of bright and deep water slide along each segment; a fresnel edge keeps the core round.
 export function flowingWaterMaterial(phase = { value: 0 }) {
-  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x0f6fb0, emissiveIntensity: 1, roughness: 0.08, metalness: 0, transparent: true, opacity: 0.93 });
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x114c58, emissiveIntensity: .24, roughness: 0.08, metalness: 0, transparent: true, opacity: 0.93 });
   m.defines = { USE_UV: '' };
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = LOOK.time;
@@ -64,31 +64,51 @@ export function flowingWaterMaterial(phase = { value: 0 }) {
       '#include <emissivemap_fragment>',
       `#include <emissivemap_fragment>
       float fsRim = pow(1.0 - abs(dot(normalize(vViewPosition), normal)), 2.0);
-      totalEmissiveRadiance = totalEmissiveRadiance * (0.35 + fsBand * 0.5) + vec3(0.55, 0.9, 1.0) * fsRim * 0.6 + fsFoam * 0.25;`);
+      totalEmissiveRadiance = totalEmissiveRadiance * (0.35 + fsBand * 0.5) + vec3(0.55, 0.9, 1.0) * fsRim * 0.16 + fsFoam * 0.08;`);
   };
   m.customProgramCacheKey = () => 'fs-flow';
   return m;
 }
 
+// Wet ceramic stays visible under a soft irregular edge; expanding impact rings replace flat blue blobs.
+export function ripplePuddleMaterial() {
+  const m=new THREE.MeshStandardMaterial({color:0x397d80,roughness:.17,metalness:.1,transparent:true,opacity:.48,depthWrite:false});
+  m.defines={USE_UV:''};
+  m.onBeforeCompile=(shader)=>{
+    shader.uniforms.uRippleTime=LOOK.time;
+    shader.fragmentShader='uniform float uRippleTime;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+      vec2 wetP=vUv*2.0-1.0;
+      float wetR=length(wetP), wetAngle=atan(wetP.y,wetP.x);
+      float wetEdge=wetR+.035*sin(wetAngle*5.0)+.025*sin(wetAngle*9.0);
+      float wetMask=1.0-smoothstep(.78,1.0,wetEdge);
+      float wetWave=sin(wetR*34.0-uRippleTime*7.0+sin(wetAngle*3.0)*.3);
+      float wetRing=pow(max(0.0,wetWave),14.0)*(1.0-wetR)*.38;
+      diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.58,.80,.77),wetRing);
+      diffuseColor.a*=wetMask*(.55+wetRing);
+    `);
+  };m.customProgramCacheKey=()=> 'fs-ripple-puddle';return m;
+}
+
 // ---------------------------------------------------------------- the sea at the drain
 // World-space ripples (so neighbouring sea tiles join up), sparkle on wave crests and a lighter shallow edge.
-export function seaMaterial() {
+export function seaMaterial({scale=140,glint=.22,emission=1,ripple=.09}={}) {
   const m = new THREE.MeshStandardMaterial({ color: 0x357e89, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.84 });
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = LOOK.time;
+    shader.uniforms.uFsWaterScale={value:scale};shader.uniforms.uFsGlint={value:glint};shader.uniforms.uFsEmission={value:emission};shader.uniforms.uFsRipple={value:ripple};
     shader.vertexShader = 'varying vec3 vFsWorld;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvFsWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    shader.fragmentShader = 'uniform float uTime;\nvarying vec3 vFsWorld;\n' + shader.fragmentShader.replace(
+    shader.fragmentShader = 'uniform float uTime;\nuniform float uFsWaterScale;\nuniform float uFsGlint;\nuniform float uFsEmission;\nuniform float uFsRipple;\nvarying vec3 vFsWorld;\n' + shader.fragmentShader.replace(
       '#include <normal_fragment_maps>',
       `#include <normal_fragment_maps>
-      vec2 fsP = vFsWorld.xz * 140.0;
+      vec2 fsP = vFsWorld.xz * uFsWaterScale;
       float fsT = uTime;
       vec2 fsG = vec2(cos(fsP.x + fsT * 1.7) + 0.6 * cos(fsP.x * 0.7 + fsP.y * 1.3 - fsT * 2.1),
-                      cos(fsP.y * 1.1 - fsT * 1.3) + 0.6 * cos(fsP.y * 0.8 - fsP.x * 1.2 + fsT * 1.9)) * 0.09;
+                      cos(fsP.y * 1.1 - fsT * 1.3) + 0.6 * cos(fsP.y * 0.8 - fsP.x * 1.2 + fsT * 1.9)) * uFsRipple;
       normal = normalize(normal + (viewMatrix * vec4(fsG.x, 0.0, fsG.y, 0.0)).xyz);
       float fsWave = sin(fsP.x + fsT * 1.7) * sin(fsP.y * 1.1 - fsT * 1.3);`).replace(
       '#include <emissivemap_fragment>',
       `#include <emissivemap_fragment>
-      totalEmissiveRadiance += vec3(0.02, 0.10, 0.12) * (0.4 + 0.6 * smoothstep(0.55, 0.95, fsWave)) + vec3(0.7, 0.9, 1.0) * smoothstep(0.92, 0.99, fsWave) * 0.22;`);
+      totalEmissiveRadiance += vec3(0.02, 0.10, 0.12) * uFsEmission * (0.4 + 0.6 * smoothstep(0.55, 0.95, fsWave)) + vec3(0.7, 0.9, 1.0) * smoothstep(0.92, 0.99, fsWave) * uFsGlint;`);
   };
   m.customProgramCacheKey = () => 'fs-sea';
   return m;
@@ -118,7 +138,12 @@ export function skyDome(radius = 24) {
         float star = step(0.985, hash(cell)) * smoothstep(0.45, 0.0, length(fract(sp) - 0.5)) * smoothstep(0.12, 0.4, e);
         col += vec3(0.9, 0.92, 1.0) * star * (0.6 + 0.4 * sin(uTime * 2.0 + hash(cell) * 30.0)) * (1.0 + 0.6 * uLit);
         float ridge = 0.035 + 0.03 * sin(az * 3.0 + 0.5) + 0.018 * sin(az * 7.0 + 2.0) + 0.008 * sin(az * 19.0);
-        if (e < ridge) col = mix(vec3(0.09, 0.13, 0.17), vec3(0.15, 0.18, 0.22), smoothstep(ridge - 0.05, ridge, e));
+        // Layered atmospheric ridges: soften the old single hard horizon silhouette.
+        float farRidge = ridge + 0.025 + 0.012 * sin(az * 5.0 - 1.2);
+        float midRidge = ridge - 0.012 + 0.009 * sin(az * 11.0);
+        col = mix(col, vec3(0.24, 0.31, 0.34), 1.0-smoothstep(farRidge-0.003,farRidge+0.003,e));
+        col = mix(col, vec3(0.16, 0.24, 0.28), 1.0-smoothstep(midRidge-0.002,midRidge+0.002,e));
+        col = mix(col, vec3(0.10, 0.18, 0.22), 1.0-smoothstep(ridge-0.04,ridge-0.036,e));
         if (e < 0.0) col = mix(col, ground, smoothstep(0.0, -0.08, e));
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>

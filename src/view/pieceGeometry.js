@@ -105,8 +105,8 @@ export function buildPiece(type, opts = {}) {
     const sea = new THREE.Mesh(new THREE.BoxGeometry(T * 0.79, 0.004, T * 0.79), mat('sea'));
     sea.position.y = 0.004;
     group.add(sea);
-    const sand = new THREE.Mesh(new THREE.BoxGeometry(T * 0.96, 0.003, T * 0.96), mat('sand'));
-    sand.position.set(0, 0.001, 0);
+    const sand = authoredMesh('basinRim', mat('limestone'));
+    sand.position.set(0, 0, 0);
     group.add(sand);
     parts.sea = sea;
   }

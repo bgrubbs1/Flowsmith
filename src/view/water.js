@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { DIRS } from '../sim/pieces.js';
 import { T, PIPE_Y, PIPE_R } from './materials.js';
-import { flowingWaterMaterial } from './looks.js';
+import { flowingWaterMaterial, ripplePuddleMaterial } from './looks.js';
 
 const MAX = 1800;
 const SPACING = 0.011;
@@ -10,8 +10,8 @@ export const VISIBLE_FLOW = 0.01;
 
 export class WaterView {
   constructor(parent) {
-    const g = new THREE.SphereGeometry(0.0027, 8, 6);
-    this.mesh = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({ color: 0xa7e1dd, transparent: true, opacity: 0.85 }), MAX);
+    const g = new THREE.SphereGeometry(0.0015, 6, 4);
+    this.mesh = new THREE.InstancedMesh(g, new THREE.MeshStandardMaterial({ color: 0xb7e9e4, roughness: .16, metalness: .12, transparent: true, opacity: .75 }), MAX);
     // Solid water core inside the glass, one segment per wet link between two cells.
     const cg = new THREE.CylinderGeometry(PIPE_R * 0.72, PIPE_R * 0.72, 1, 10, 1, true);
     cg.rotateX(Math.PI / 2);
@@ -34,7 +34,13 @@ export class WaterView {
     parent.add(this.mesh);
     this.puddleParent = parent; this.puddles = [];
     this.puddleGeo = new THREE.CircleGeometry(1, 24); this.puddleGeo.rotateX(-Math.PI / 2);
-    this.puddleMat = new THREE.MeshStandardMaterial({ color: 0x2d7f87, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.42, depthWrite: false });
+    this.puddleMat = ripplePuddleMaterial();
+    // One shared ballistic tube: continuous liquid jet, with sparse spray rather than a necklace of balls.
+    const flight = (0.03 + Math.sqrt(0.0009 + 0.36 * PIPE_Y)) / 0.18;
+    const points = Array.from({length:13},(_,i)=>{const u=i/12,t=u*flight;return new THREE.Vector3(0,PIPE_Y+.03*t-.09*t*t,.05*u);});
+    this.jets = new THREE.InstancedMesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),12,.0024,6,false),new THREE.MeshStandardMaterial({color:0x70bcc2,roughness:.12,metalness:.08,transparent:true,opacity:.8}),64);
+    this.jets.name='ballistic-leak-jets';this.jets.count=0;this.jets.frustumCulled=false;this.jets.instanceMatrix.setUsage(THREE.DynamicDrawUsage);parent.add(this.jets);
+    this.jetMatrix=new THREE.Matrix4();this.jetRotation=new THREE.Quaternion();this.jetAxis=new THREE.Vector3(0,1,0);
     this.phase = new Map();
     this.m = new THREE.Matrix4();
     this.v = new THREE.Vector3();
@@ -43,7 +49,7 @@ export class WaterView {
   update(dt, st, cellCenter) {
     this.t += dt;
     const res = st.result;
-    if (!res) { this.mesh.count = this.core.count = this.stillCore.count = 0; return; }
+    if (!res) { this.mesh.count = this.core.count = this.stillCore.count = this.jets.count = 0; return; }
     let n = 0;
     const put = (x, y, z, s = 1) => {
       if (n >= MAX) return;
@@ -93,8 +99,9 @@ export class WaterView {
       }
     }
     // Leaks: a gushing arc that lands in a spreading puddle with a splash, not a dotted line.
-    let pi = 0;
+    let pi = 0, nj = 0;
     for (const L of res.leaks) {
+      if (Math.abs(L.q) < VISIBLE_FLOW) continue;
       const r = Math.floor(L.i / cols), c = L.i % cols;
       const a = cellCenter(r, c);
       const d = DIRS.find((x) => x.bit === L.dir);
@@ -110,16 +117,21 @@ export class WaterView {
       const tLand = (0.03 + Math.sqrt(0.0009 + 0.36 * PIPE_Y)) / 0.18;
       const reach = v0 * 0.45 * tLand;
       const lx = ex + d.dc * reach, lz = ez + d.dr * reach;
-      for (let i = 0; i < 56; i++) {
+      if(nj<64){
+        this.jetRotation.setFromAxisAngle(this.jetAxis,Math.atan2(d.dc,d.dr));
+        this.jetMatrix.compose(this.v.set(ex,0,ez),this.jetRotation,this.sc.set(.65+.45*strength,1,reach/.05));
+        this.jets.setMatrixAt(nj++,this.jetMatrix);
+      }
+      for (let i = 0; i < 24; i++) {
         const h1 = Math.sin(i * 12.9898) * 43758.5453, h2 = Math.sin(i * 78.233) * 12345.678;
         const j1 = h1 - Math.floor(h1) - 0.5, j2 = h2 - Math.floor(h2) - 0.5;
-        const life = (i / 56 + this.t * (1.5 + j2 * 0.4)) % 1;
+        const life = (i / 24 + this.t * (1.5 + j2 * 0.4)) % 1;
         const tt = life * tLand * 1.15;
         const horiz = v0 * (1 + j1 * 0.25) * 0.45 * Math.min(tt, tLand);
         const side = j2 * 0.35 * horiz;
         let py = PIPE_Y + 0.03 * tt - 0.09 * tt * tt;
         let px = ex + d.dc * horiz + d.dr * side, pz = ez + d.dr * horiz + d.dc * side;
-        let size = 0.75 + 0.5 * Math.abs(j1) * 2 - life * 0.25;
+        let size = 0.45 + 0.35 * Math.abs(j1) * 2 - life * 0.18;
         if (py < 0.001) {
           // Splash: bounce up and outward from the impact point.
           const k = (tt - tLand) / (tLand * 0.15);
@@ -141,6 +153,7 @@ export class WaterView {
       pi++;
     }
     for (; pi < this.puddles.length; pi++) { this.puddles[pi].visible = false; this.puddles[pi].userData.s = 0; }
+    this.jets.count=nj;this.jets.instanceMatrix.needsUpdate=true;
     this.mesh.count = n;
     this.mesh.instanceMatrix.needsUpdate = true;
   }

@@ -49,9 +49,9 @@ npm run preview
 
 Built with Three.js, WebXR, Meta's Immersive Web Emulation Runtime, and a flow-network solver. The campaign contains three gesture lessons, two authored transition challenges, and seven reproducible generated puzzles. The original landmark now has 10,506 triangles with selectively beveled copper and foundation edges. Its essential geometry remains present in passthrough; the surrounding room does not.
 
-The latest validated source suite has 66 tests across 16 files. Coverage includes solver invariants, generated-level solvability, shared-pressure counterexamples, placement and rotation, real IWER joint transforms passed through the hand-input code, local records, menu Resume, post-win break/repair, low-flow animation, powered material states, and recording interruptions. The production build passed. These tests do not establish physical Quest tracking, comfort, or headset frame rate.
+The latest validated source suite has 67 tests across 16 files. Coverage includes solver invariants, generated-level solvability, shared-pressure counterexamples, placement and rotation, real IWER joint transforms passed through the hand-input code, local records, menu Resume, post-win break/repair, low-flow animation, powered material states, and recording interruptions. The production build passed. These tests do not establish physical Quest tracking, comfort, or headset frame rate.
 
-A browser-emulator walkthrough demonstrates The Night Shift's pressure tradeoff and successful completion. It is scripted emulator footage, not footage recorded on Quest hardware. Real-device validation remains a separate requirement; no hardware performance claim is made.
+[Watch the current emulator walkthrough](https://www.youtube.com/watch?v=3i_J0LkcVu8). This browser-emulator walkthrough demonstrates The Night Shift's pressure tradeoff and successful completion. It is scripted emulator footage, not footage recorded on Quest hardware. Real-device validation remains a separate requirement; no hardware performance claim is made.
 
 ## Recording a local emulator walkthrough
 
@@ -61,14 +61,14 @@ The recorder has a 110-second bound and a **Stop & save partial** control. Keep 
 
 ## Assets and license
 
-The pumping-station landmark is original code-authored geometry. Its contact shading was baked into vertex colours with Blender (Cycles ambient occlusion), then tank and foundation edges were selectively refined in Blender 5.2.4 LTS. The current landmark SHA-256 is `cfad32a7f3b1965348f27362f8453e09861cb8825e2906a45605d5eb411cc0fd` (744,692 bytes).
+The pumping-station landmark is original code-authored geometry. Its contact shading was baked into vertex colours with Blender (Cycles ambient occlusion), then tank and foundation edges were selectively refined in Blender 5.2.4 LTS. The current landmark SHA-256 is `7205181e6534f5ad87522c518a4680f677c4eb3055c5c4055db529a1abb51518` (1,176,948 bytes).
 
-The playable mills, timber wheels, roof seams and hollow pipe flanges are original Blender-authored meshes exported into runtime geometry. Celadon tile colour and normal maps are baked in Blender; walnut and felt retain the earlier original procedural bakes. No photo or third-party textures are used. Rebuild scripts and preserved landmark input are in [`tools/blender/redesign-source`](tools/blender/redesign-source). Development and asset creation used AI assistance.
+The playable mills, timber wheels, roof seams and hollow pipe flanges are original Blender-authored meshes exported into runtime geometry. Celadon tile colour and normal maps are baked in Blender. Seven additional original PBR sets cover patinated copper, worked copper, brushed brass, fired brick, carved limestone, slate and oiled timber, with colour, tangent normal and roughness maps. Playable meshes carry physically scaled UVs; the station preserves vertex ambient occlusion. Walnut and felt retain the earlier original procedural bakes. No photo or third-party textures are used. Rebuild scripts and preserved landmark input are in [`tools/blender/redesign-source`](tools/blender/redesign-source). Development and asset creation used AI assistance.
 
-The most complex solved puzzle uses 176 draw calls and 30,990 triangles under the source guardrail; this excludes the environment and shadow passes. The added materials and shadows have not been benchmarked on physical Quest hardware.
+Water now uses instanced curved leak jets, sparse spray, impact ripples and recessed open basin rims. A restrained canal courtyard and layered atmospheric background frame the puzzle. A matched 1440×1000 Apple M4/Metal Chrome check ran at the display-capped 60 fps for leaking and solved Night Shift; it submitted approximately 327/326 draw calls including shadows. This is desktop validation only. Materials, shadows and physical hand interaction have not been benchmarked on Quest hardware.
 
 Project source and original project artwork: MIT, see [LICENSE](LICENSE). Dependencies retain their respective licenses; see [third-party notices](public/THIRD_PARTY_NOTICES.txt).
 
 ## Gameplay video
 
-[Watch The Night Shift demo](https://www.youtube.com/watch?v=AnWCh8KOKRg). Genuine scripted emulator footage, not Quest hardware footage.
+[Watch The Night Shift demo](https://www.youtube.com/watch?v=3i_J0LkcVu8). Genuine scripted emulator footage, not Quest hardware footage.

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { bindPoweredMaterials, setMaterialPower } from './power.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { skyDome, lightPool, HORIZON, bakedSurface, LOOK } from './looks.js';
+import { skyDome, lightPool, HORIZON, bakedSurface, seaMaterial, LOOK } from './looks.js';
 
 // Reflections come from the same dusk sky plus a warm lamp bank, so copper and glass pick up amber highlights.
 function duskEnvironment(renderer){
@@ -13,13 +13,44 @@ function duskEnvironment(renderer){
   for(const [x,y,z,w,h,m] of [[-2.2,3,1.5,1.6,.6,lamp],[2.6,2.4,-1,.8,1.4,cool],[0,4.5,0,3,3,cool],[1.8,1.2,2.4,1,.5,lamp]]){const p=new THREE.Mesh(new THREE.PlaneGeometry(w,h),m);p.position.set(x,y,z);p.lookAt(0,0,0);s.add(p);}
   const pmrem=new THREE.PMREMGenerator(renderer);const tex=pmrem.fromScene(s,.035).texture;pmrem.dispose();return tex;
 }
+// Low-contrast canal courtyard: a quiet sense of place outside the hand-reach volume.
+// Static geometry is merged by material; no additional lights or shadow passes.
+function canalCourtyard() {
+  const group = new THREE.Group(); group.name = 'canal-courtyard';
+  const stone = bakedSurface('carved_limestone',{color:0x344853,roughness:.96,metalness:0,envMapIntensity:.15},{repeat:[8,8],normalScale:.15});
+  const coping = new THREE.MeshStandardMaterial({color:0x465657,roughness:.9});
+  const water = seaMaterial({scale:4,glint:.035,emission:.15,ripple:.025});water.color.setHex(0x173d49);water.roughness=.28;water.metalness=.18;water.opacity=1;water.transparent=false;
+  const iron = new THREE.MeshStandardMaterial({color:0x20353b,roughness:.7,metalness:.25});
+  const glow = new THREE.MeshBasicMaterial({color:0xa9865b});
+  const batches = new Map();
+  const put = (geo,mat,x,y,z,ry=0) => { const m = new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),ry),new THREE.Vector3(1,1,1));geo.applyMatrix4(m);if(!batches.has(mat))batches.set(mat,[]);batches.get(mat).push(geo); };
+  const block=(w,h,d,x,y,z,mat=stone)=>put(new THREE.BoxGeometry(w,h,d),mat,x,y,z);
+  // One continuous dark, worn terrace. No second tile grid competing with the puzzle.
+  block(13,.06,8,0,-.04,1.5);
+  // A canal runs behind the workbench. A broken line of coping catches dusk light.
+  block(7,.035,1.1,0,-.06,-3.15,water);
+  for(const z of [-2.58,-3.73]) for(let x=-3.6;x<3.7;x+=.6) block(.59,.12,.18,x,.015,z,coping);
+  // Far embankment and sparse iron rail, always behind the station silhouette.
+  block(8,.38,.42,0,-.08,-3.96);
+  for(let x=-3.6;x<=3.6;x+=.9){block(.035,.53,.035,x,.24,-3.65,iron);}
+  block(7.25,.025,.025,0,.49,-3.65,iron);
+  for(const x of [-2.6,-1.3,1.3,2.6]) {
+    block(.065,.85,.065,x,.46,-3.86,iron);
+    block(.12,.035,.12,x,.91,-3.86,iron);
+    block(.075,.13,.075,x,.99,-3.86,glow);
+    put(new THREE.ConeGeometry(.095,.075,4),iron,x,1.095,-3.86,Math.PI/4);
+  }
+  for(const [mat,geos] of batches){const mesh=new THREE.Mesh(mergeGeometries(geos,false),mat);mesh.receiveShadow=true;group.add(mesh);geos.forEach(g=>g.dispose());}
+  group.scale.setScalar(.65); group.position.z=-2.5;
+  return group;
+}
 export class Environment {
   constructor(scene, renderer) {
     this.scene=scene;scene.background=HORIZON.clone();scene.fog=new THREE.Fog(HORIZON,3,16);
-    scene.environment=duskEnvironment(renderer);scene.environmentIntensity=.95;
+    scene.environment=duskEnvironment(renderer);scene.environmentIntensity=.75;
     // Warm lamplight from over the left shoulder, cool dusk fill, a blue rim to lift silhouettes off the sky.
     this.hemi=new THREE.HemisphereLight(0xc5d8e5,0x716450,1.6);this.sun=new THREE.DirectionalLight(0xffe1b8,2.7);this.sun.position.set(-.7,2,.9);
-    const rim=new THREE.DirectionalLight(0x8fbfff,1.8);rim.position.set(1.2,1.1,-2);scene.add(this.hemi,this.sun,rim);
+    const rim=new THREE.DirectionalLight(0x98c7e5,1.35);rim.position.set(1.2,1.1,-2);scene.add(this.hemi,this.sun,rim);
     this.sun.castShadow=true;this.sun.shadow.mapSize.set(1024,1024);this.sun.shadow.camera.left=-.65;this.sun.shadow.camera.right=.65;this.sun.shadow.camera.top=.65;this.sun.shadow.camera.bottom=-.65;this.sun.shadow.camera.near=.1;this.sun.shadow.camera.far=5;this.sun.shadow.normalBias=.00035;this.sun.target.position.set(0,.82,-.32);scene.add(this.sun.target);
     this.room=new THREE.Group();scene.add(this.room);this.table=new THREE.Group();scene.add(this.table);
     // The cabinet top is oiled walnut (baked in Blender), the rest dark painted steel.
@@ -49,7 +80,8 @@ export class Environment {
     target=this.table;
     for(const x of [-.354,.354])box(.003,.004,.54,x,-.025,.03,this.glow);
     this.room.add(skyDome());
-    const floor=new THREE.Mesh(new THREE.CircleGeometry(16,48),new THREE.MeshStandardMaterial({color:0x26323c,roughness:.8,metalness:0,envMapIntensity:.35}));floor.rotation.x=-Math.PI/2;this.room.add(floor);
+    this.room.add(canalCourtyard());
+    const floor=new THREE.Mesh(new THREE.CircleGeometry(16,48),new THREE.MeshStandardMaterial({color:0x26323c,roughness:.8,metalness:0,envMapIntensity:.35}));floor.rotation.x=-Math.PI/2;floor.position.y=-.15;this.room.add(floor);
     this.pool=lightPool(2.2,0xffb46a,.22);this.pool.position.set(0,.002,-.3);this.room.add(this.pool);
     this.powerMaterials=[];this.currentFlow=0;
     this.assetReady=new GLTFLoader().loadAsync(import.meta.env.BASE_URL+'assets/flowsmith-waterworks-landmark.glb').then(gltf=>{
@@ -79,5 +111,5 @@ export class Environment {
   }
   setPassthrough(on){this.room.visible=!on;this.scene.background=on?null:HORIZON.clone();this.scene.fog=on?null:new THREE.Fog(HORIZON,3,16);}
   followAnchor(anchor){this.table.position.copy(anchor.position);this.table.rotation.y=anchor.rotation.y;}
-  setDusk(f){this.currentFlow=f;for(const material of this.powerMaterials||[])setMaterialPower(material,f);this.hemi.intensity=1.25-.10*f;this.sun.intensity=3.1-.15*f;this.glow.emissiveIntensity=.7+f*2;if(this.pool)this.pool.material.opacity=.22+f*.16;if(this.tablePool)this.tablePool.material.opacity=.08+f*.22;LOOK.lit.value=f;}
+  setDusk(f){this.currentFlow=f;for(const material of this.powerMaterials||[])setMaterialPower(material,f);this.hemi.intensity=1.05-.10*f;this.sun.intensity=3.0-.15*f;this.glow.emissiveIntensity=.7+f*2;if(this.pool)this.pool.material.opacity=.22+f*.16;if(this.tablePool)this.tablePool.material.opacity=.08+f*.22;LOOK.lit.value=f;}
 }

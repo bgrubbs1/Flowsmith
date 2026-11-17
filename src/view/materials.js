@@ -10,8 +10,8 @@ export const COLORS = {
   copperDark: 0x50736d,
   brass: 0xc4a56b,
   glass: 0xbfe6ff,
-  water: 0x3cc8ff,
-  waterDeep: 0x1f6fd1,
+  water: 0x4ba8b5,
+  waterDeep: 0x24637c,
   grassA: 0x334852,
   grassB: 0x293b46,
   wood: 0x202c35,
@@ -27,30 +27,31 @@ export const COLORS = {
   panel: '#f5ead6',
 };
 
+const pbr=(name,params={},normalScale=.35)=>bakedSurface(name,{color:0xffffff,roughness:1,roughnessMap:bakedTexture(name+'_roughness',{srgb:false}),...params},{normalScale});
 const cache = new Map();
 export function mat(name) {
   if (cache.has(name)) return cache.get(name);
   let m;
   switch (name) {
-    case 'copper': m = new THREE.MeshStandardMaterial({ color: COLORS.copper, metalness: 0.45, roughness: 0.35 }); break;
-    case 'copperLocked': m = new THREE.MeshStandardMaterial({ color: COLORS.copperDark, metalness: 0.35, roughness: 0.55 }); break;
-    case 'brass': m = new THREE.MeshStandardMaterial({ color: COLORS.brass, metalness: 0.55, roughness: 0.34 }); break;
+    case 'copper': m = pbr('copper_worked',{metalness:.62},.3); break;
+    case 'copperLocked': m = pbr('copper_patina',{color:0xb0d8d0,metalness:.48},.3); break;
+    case 'brass': m = pbr('brushed_brass',{metalness:.68},.28); break;
     case 'glass': m = glassify(new THREE.MeshStandardMaterial({ color: 0x79a7ae, metalness: 0, roughness: 0.04, transparent: true, opacity: 0.30, depthWrite: false, emissive: 0x9fdcff, emissiveIntensity: 0.1 })); break;
-    case 'water': m = new THREE.MeshStandardMaterial({ color: COLORS.water, emissive: 0x0b3a77, roughness: 0.2, metalness: 0 }); break;
+    case 'water': m = new THREE.MeshStandardMaterial({ color: COLORS.water, emissive: 0x0d343b, roughness: 0.2, metalness: 0 }); break;
     case 'sea': m = seaMaterial(); break;
     case 'wood': m = bakedSurface('walnut', { color: 0xffffff, roughness: 0.72, metalness: 0, envMapIntensity: 0.25 }, { normalScale: 0.35, repeat: [3, 3] }); break;
-    case 'woodDark': m = new THREE.MeshStandardMaterial({color:0x302b28,roughness:.62}); break;
+    case 'woodDark': m = pbr('oiled_timber',{color:0x66594b,metalness:0},.28); break;
     case 'stone': m = new THREE.MeshStandardMaterial({ color: COLORS.stone, roughness: 0.95, flatShading: true }); break;
-    case 'boulder': m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, flatShading: true }); break;
+    case 'boulder': m = new THREE.MeshStandardMaterial({vertexColors:true,roughness:.9,metalness:0,flatShading:true,normalMap:bakedTexture('carved_limestone_normal',{srgb:false}),normalScale:new THREE.Vector2(.22,.22)}); break;
     case 'slate': m = bakedSurface('celadon_ceramic',{roughness:.53,metalness:0},{normalScale:.35}); break;
     case 'felt': m = bakedSurface('felt', { roughness: 1 }); break;
-    case 'roof': m = new THREE.MeshStandardMaterial({ color: COLORS.roof, roughness: 0.7, flatShading: true }); break;
+    case 'roof': m = pbr('slate_roof',{metalness:0},.35); break;
     case 'wheelRed': m = new THREE.MeshStandardMaterial({ color: COLORS.wheel, roughness: 0.5, metalness: 0.2 }); break;
     case 'mound': m = new THREE.MeshStandardMaterial({ color: 0x516369, roughness: 0.9, flatShading: true }); break;
     case 'sand': m = new THREE.MeshStandardMaterial({ color: 0xb79f74, roughness: 0.95 }); break;
-    case 'paleWood': m = new THREE.MeshStandardMaterial({ color: 0x98724d, roughness: 0.68 }); break;
+    case 'paleWood': m = pbr('oiled_timber',{metalness:0},.35); break;
     case 'plaster': m = new THREE.MeshStandardMaterial({color:0xddcfaa,roughness:.88}); break;
-    case 'limestone': m = new THREE.MeshStandardMaterial({color:0xb9b49c,roughness:.9}); break;
+    case 'limestone': m = pbr('carved_limestone',{metalness:0},.3); break;
     case 'tealEnamel': m = new THREE.MeshStandardMaterial({color:0x3c7776,roughness:.4,metalness:.08}); break;
     case 'roofEdge': m = new THREE.MeshStandardMaterial({color:0x57747a,roughness:.7}); break;
     case 'lamp': m = new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffc35a, emissiveIntensity: 0.05, roughness: 0.4 }); break;

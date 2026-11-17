@@ -63,18 +63,34 @@ for k in range(segments):
  j=(k+1)%segments
  for a,b in [(0,16),(16,48),(48,32),(32,0)]:faces.append((a+k,a+j,b+j,b+k))
 m=bpy.data.meshes.new('flange');m.from_pydata(verts,[],faces);m.update();o=bpy.data.objects.new('flange',m);bpy.context.collection.objects.link(o);register(o,'flange')
+# Open carved stone catch-basin rim; genuine recessed opening, not a water block on a slab.
+verts=[]
+for y in [.001,.008]:
+ for half in [.026,.0215]:
+  for x,z in [(-half,-half),(half,-half),(half,half),(-half,half)]:verts.append((x,-z,y))
+faces=[]
+for i in range(4):
+ j=(i+1)%4
+ faces.extend([(8+i,8+j,12+j,12+i),(i,4+i,4+j,j),(i,j,8+j,8+i),(4+i,12+i,12+j,4+j)])
+m=bpy.data.meshes.new('basinRim');m.from_pydata(verts,[],[tuple(reversed(f)) for f in faces]);m.update();o=bpy.data.objects.new('basinRim',m);bpy.context.collection.objects.link(o);register(o,'basinRim',.00045)
 # Serialize merged world-space triangles with normals, preserving geometry authored in Blender.
 result={};deps=bpy.context.evaluated_depsgraph_get()
 for name,objs in PARTS.items():
- ps=[];ns=[]
+ ps=[];ns=[];uvs=[]
  for o in objs:
   eo=o.evaluated_get(deps);mesh=eo.to_mesh();mesh.calc_loop_triangles();M=o.matrix_world;N=M.to_3x3().inverted().transposed()
   for tri in mesh.loop_triangles:
+   normal=(N@tri.normal).normalized();axis=max(range(3),key=lambda i:abs(normal[i]));axes=[i for i in range(3) if i!=axis]
+   if name in ['millTimber','wheelWood']:
+    # Grain runs along the longest projected component rather than stretching across it.
+    spans=[max((M@v.co)[a] for v in mesh.vertices)-min((M@v.co)[a] for v in mesh.vertices) for a in axes]
+    if spans[1]>spans[0]:axes.reverse()
    for v in tri.vertices:
     p=M@mesh.vertices[v].co;n=(N@tri.normal).normalized()
+    uvs.extend([round(p[axes[0]]/.035,6),round(p[axes[1]]/.035,6)])
     ps.extend([round(p.x,7),round(p.z,7),round(-p.y,7)]);ns.extend([round(n.x,6),round(n.z,6),round(-n.y,6)])
   eo.to_mesh_clear()
- result[name]={'position':ps,'normal':ns,'triangles':len(ps)//9}
+ result[name]={'position':ps,'normal':ns,'uv':uvs,'triangles':len(ps)//9}
 (OUT/'src/view/blender-mill.json').write_text(json.dumps(result,separators=(',',':')))
 bpy.ops.wm.save_as_mainfile(filepath=str(OUT/'playable-mill-source.blend'))
 print({k:v['triangles'] for k,v in result.items()})

@@ -18,3 +18,8 @@ it('a still branch never shares moving stripes with a flowing branch',()=>{
  const water=new WaterView(new THREE.Group());const st={cols:3,result:{sol:{wet:[true,true,true],edges:[{a:0,b:1,q:.00001},{a:1,b:2,q:.5}]},leaks:[]}};
  water.update(.1,st,center);expect(water.stillCore.count).toBe(1);expect(water.core.count).toBe(1);
 });
+it('leaking water has continuous ballistic jets, cleared when flow stops',()=>{
+ const water=new WaterView(new THREE.Group());const st={cols:2,result:{sol:{wet:[true,false],edges:[]},leaks:[{i:0,dir:2,q:1}]}};
+ water.update(.1,st,center);expect(water.jets.count).toBe(1);expect(water.puddles[0].visible).toBe(true);
+ st.result.leaks=[];water.update(.1,st,center);expect(water.jets.count).toBe(0);expect(water.puddles[0].visible).toBe(false);
+});
