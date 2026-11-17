@@ -21,8 +21,8 @@ export class MenuView {
     parent.add(this.root);
     this.buttons = [];
     this.knobs = [];
-    this.title = new CanvasPanel(0.38, 0.105, 1200);
-    this.title.mesh.position.set(0, 0.12, -0.15);
+    this.title = new CanvasPanel(0.32, 0.080, 1200);
+    this.title.mesh.position.set(0, 0.15, -0.17);
     this.title.mesh.rotation.x = -0.25;
     this.root.add(this.title.mesh);
     this.highlight = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.0016, 6, 32), new THREE.MeshBasicMaterial({ color: 0xfff2a8 }));
@@ -73,16 +73,16 @@ export class MenuView {
     const total = Object.values(progress.stars).reduce((a, b) => a + b, 0);
     this.title.last = '';
     this.title.draw('t' + total + daily.streak + daily.done, (g, w, h) => {
-      g.fillStyle = 'rgba(15,28,39,0.97)'; roundRect(g, 6, 6, w - 12, h - 12, 12); g.fill();
+      g.fillStyle = '#142d38'; roundRect(g, 6, 6, w - 12, h - 12, 12); g.fill();
       g.strokeStyle = '#c7a568'; g.lineWidth = 3; g.stroke();
       g.fillStyle = '#f3e6cc'; g.textAlign = 'center'; g.textBaseline = 'top';
-      g.font = '600 96px Georgia, serif'; g.fillText('Flowsmith', w / 2, 24);
+      g.font = '500 80px Georgia, serif'; g.fillText('Flowsmith', w / 2, 25);
       g.font = font(35, 500); g.fillStyle = '#c4d7de';
-      wrapText(g, 'Pinch pipes into place. Twist valves. Light the valley.', w / 2, 135, w - 120, 48);
+      wrapText(g, 'Pinch pipes into place. Twist valves. Light the valley.', w / 2, 121, w - 120, 42);
       g.font = font(36, 700); g.fillStyle = '#c7a568';
-      g.fillText(`★ ${total} / ${levels.length * 3}     ☀ Daily streak ${daily.streak}`, w / 2, 210);
+      g.fillText(`★ ${total} / ${levels.length * 3}     ☀ Daily streak ${daily.streak}`, w / 2, 186);
       g.font = font(30, 500); g.fillStyle = '#9fb5bf';
-      g.fillText('Press a button with your fingertip, or pinch it.', w / 2, 270);
+      g.fillText('Press a button with your fingertip, or pinch it.', w / 2, 250);
     });
   }
   update(dt) { for (const b of this.buttons) b.update(dt); }

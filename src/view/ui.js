@@ -102,9 +102,10 @@ export class PushButton {
       g.fillText(icon || label, w / 2, h / 2 + 6);
     });
     this.tag.draw(label, (g, w, h) => {
-      g.fillStyle = 'rgba(42,36,32,0.88)'; roundRect(g, 4, 4, w - 8, h - 8, 50); g.fill();
-      g.fillStyle = '#fff6e6'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.font = font(label.length > 9 ? 70 : 88, 800); g.fillText(label, w / 2, h / 2 + 4);
+      g.fillStyle = '#18313c'; roundRect(g, 6, 8, w - 12, h - 16, 10); g.fill();
+      g.strokeStyle = '#b99862'; g.lineWidth = 3; g.stroke();
+      g.fillStyle = '#ecdfc2'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = font(label.length > 9 ? 62 : 74, 500); g.fillText(label, w / 2, h / 2 + 4);
     });
   }
   setEnabled(v) {

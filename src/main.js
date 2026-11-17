@@ -39,6 +39,8 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.xr.enabled = true;
 renderer.xr.setReferenceSpaceType('local-floor');
 renderer.xr.setFoveation(0.5);
@@ -59,6 +61,8 @@ if(import.meta.env.DEV && params.has('debugpower')) {
 const sound = new Sound();
 setEphemeral(import.meta.env.DEV && params.has('director'));
 const app = new App(scene, sound);
+function refreshShadows(){scene.traverse(o=>{if(o.isMesh && !o.material?.transparent && o.name!=='sky-dome'){o.castShadow=true;o.receiveShadow=true;}});}
+env.assetReady.then(refreshShadows);app.onEvent(refreshShadows);
 app.anchor.scale.setScalar(1.25);
 const handViz = new HandViz(scene);
 const hands = new HandInput();

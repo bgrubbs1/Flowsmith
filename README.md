@@ -1,6 +1,6 @@
 # Flowsmith
 
-A hands-first waterworks puzzle designed for seated play in Meta Quest Browser, with a playable desktop mode. Build a miniature pipe network, balance competing mills, and bring a copper-and-slate pumping station to life.
+A hands-first waterworks puzzle designed for seated play in Meta Quest Browser, with a playable desktop mode. Build a miniature pipe network, balance competing mills, and bring a copper-and-celadon pumping station to life.
 
 ## Play
 
@@ -47,9 +47,9 @@ npm run preview
 
 ## Implementation and validation
 
-Built with Three.js, WebXR, Meta's Immersive Web Emulation Runtime, and a flow-network solver. The campaign contains three gesture lessons, two authored transition challenges, and seven reproducible generated puzzles. The original, texture-free landmark has 10,238 triangles and 11 material batches. Its essential geometry remains present in passthrough; the surrounding room does not.
+Built with Three.js, WebXR, Meta's Immersive Web Emulation Runtime, and a flow-network solver. The campaign contains three gesture lessons, two authored transition challenges, and seven reproducible generated puzzles. The original landmark now has 10,506 triangles with selectively beveled copper and foundation edges. Its essential geometry remains present in passthrough; the surrounding room does not.
 
-The latest validated source suite has 45 tests across 12 files. Coverage includes solver invariants, generated-level solvability, shared-pressure counterexamples, placement and rotation, real IWER joint transforms passed through the hand-input code, local records, menu Resume, post-win break/repair, low-flow animation, powered material states, and recording interruptions. The production build passed. These tests do not establish physical Quest tracking, comfort, or headset frame rate.
+The latest validated source suite has 66 tests across 16 files. Coverage includes solver invariants, generated-level solvability, shared-pressure counterexamples, placement and rotation, real IWER joint transforms passed through the hand-input code, local records, menu Resume, post-win break/repair, low-flow animation, powered material states, and recording interruptions. The production build passed. These tests do not establish physical Quest tracking, comfort, or headset frame rate.
 
 A browser-emulator walkthrough demonstrates The Night Shift's pressure tradeoff and successful completion. It is scripted emulator footage, not footage recorded on Quest hardware. Real-device validation remains a separate requirement; no hardware performance claim is made.
 
@@ -61,10 +61,14 @@ The recorder has a 110-second bound and a **Stop & save partial** control. Keep 
 
 ## Assets and license
 
-The pumping-station landmark is original code-authored geometry created for this project. Its soft contact shading is baked into vertex colours with Blender (Cycles ambient occlusion); the landmark's SHA-256 is `8856726efde63baf91f5c3fe73639efe72a7e91e448ca9c2a6cba5e0e8341bea` (668,780 bytes). The slate tiles, walnut and felt are also original, procedurally generated and baked in Blender by [`tools/blender/bake_assets.py`](tools/blender/bake_assets.py); no photo or third-party textures are used. Re-run it with the `bpy` Python module (`python -I tools/blender/bake_assets.py -- .`). Development and asset creation used AI assistance.
+The pumping-station landmark is original code-authored geometry. Its contact shading was baked into vertex colours with Blender (Cycles ambient occlusion), then tank and foundation edges were selectively refined in Blender 5.2.4 LTS. The current landmark SHA-256 is `cfad32a7f3b1965348f27362f8453e09861cb8825e2906a45605d5eb411cc0fd` (744,692 bytes).
+
+The playable mills, timber wheels, roof seams and hollow pipe flanges are original Blender-authored meshes exported into runtime geometry. Celadon tile colour and normal maps are baked in Blender; walnut and felt retain the earlier original procedural bakes. No photo or third-party textures are used. Rebuild scripts and preserved landmark input are in [`tools/blender/redesign-source`](tools/blender/redesign-source). Development and asset creation used AI assistance.
+
+The most complex solved puzzle uses 176 draw calls and 30,990 triangles under the source guardrail; this excludes the environment and shadow passes. The added materials and shadows have not been benchmarked on physical Quest hardware.
 
 Project source and original project artwork: MIT, see [LICENSE](LICENSE). Dependencies retain their respective licenses; see [third-party notices](public/THIRD_PARTY_NOTICES.txt).
 
 ## Gameplay video
 
-[Watch The Night Shift demo](https://www.youtube.com/watch?v=wGSmnWDv_BE). Genuine scripted emulator footage, not Quest hardware footage.
+[Watch The Night Shift demo](https://www.youtube.com/watch?v=AnWCh8KOKRg). Genuine scripted emulator footage, not Quest hardware footage.

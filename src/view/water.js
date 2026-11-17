@@ -10,8 +10,8 @@ export const VISIBLE_FLOW = 0.01;
 
 export class WaterView {
   constructor(parent) {
-    const g = new THREE.SphereGeometry(0.0036, 8, 6);
-    this.mesh = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({ color: 0x9fdcf7, transparent: true, opacity: 0.85 }), MAX);
+    const g = new THREE.SphereGeometry(0.0027, 8, 6);
+    this.mesh = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({ color: 0xa7e1dd, transparent: true, opacity: 0.85 }), MAX);
     // Solid water core inside the glass, one segment per wet link between two cells.
     const cg = new THREE.CylinderGeometry(PIPE_R * 0.72, PIPE_R * 0.72, 1, 10, 1, true);
     cg.rotateX(Math.PI / 2);
@@ -34,7 +34,7 @@ export class WaterView {
     parent.add(this.mesh);
     this.puddleParent = parent; this.puddles = [];
     this.puddleGeo = new THREE.CircleGeometry(1, 24); this.puddleGeo.rotateX(-Math.PI / 2);
-    this.puddleMat = new THREE.MeshStandardMaterial({ color: 0x2a7fc4, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.75, depthWrite: false });
+    this.puddleMat = new THREE.MeshStandardMaterial({ color: 0x2d7f87, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.42, depthWrite: false });
     this.phase = new Map();
     this.m = new THREE.Matrix4();
     this.v = new THREE.Vector3();

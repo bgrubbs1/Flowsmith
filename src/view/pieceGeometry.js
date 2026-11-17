@@ -1,6 +1,7 @@
 // Builds merged meshes for each piece type at rotation 0 (ports N=-z, E=+x, S=+z, W=-x).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { authoredGeometry, authoredMesh } from './blenderAssets.js';
 import { PIECES, N, E, S, W } from '../sim/pieces.js';
 import { T, PIPE_Y, PIPE_R, mat, windowMat } from './materials.js';
 // Faceted field stones: a jittered icosphere, flat shaded, with grey-blue colour that darkens toward the
@@ -44,8 +45,7 @@ function armGeom(bit, radius, len, y = PIPE_Y) {
 }
 function flange(bit) {
   const [dx, dz] = ARM[bit];
-  const g = new THREE.CylinderGeometry(PIPE_R * 1.35, PIPE_R * 1.35, 0.004, 16);
-  g.rotateX(Math.PI / 2);
+  const g = authoredGeometry('flange').clone();
   if (dx) g.rotateY(Math.PI / 2);
   const d = T / 2 - 0.003;
   g.translate(dx * d, PIPE_Y, dz * d);
@@ -102,11 +102,11 @@ export function buildPiece(type, opts = {}) {
     parts.pool = pool;
   }
   if (type === 'drain') {
-    const sea = new THREE.Mesh(new THREE.BoxGeometry(T * 0.96, 0.006, T * 0.96), mat('sea'));
+    const sea = new THREE.Mesh(new THREE.BoxGeometry(T * 0.79, 0.004, T * 0.79), mat('sea'));
     sea.position.y = 0.004;
     group.add(sea);
-    const sand = new THREE.Mesh(new THREE.BoxGeometry(T * 0.96, 0.003, 0.012), mat('sand'));
-    sand.position.set(0, 0.006, -T / 2 + 0.008);
+    const sand = new THREE.Mesh(new THREE.BoxGeometry(T * 0.96, 0.003, T * 0.96), mat('sand'));
+    sand.position.set(0, 0.001, 0);
     group.add(sand);
     parts.sea = sea;
   }
@@ -153,54 +153,15 @@ export function buildPiece(type, opts = {}) {
     parts.wheel = wheel;
   }
   if (type === 'mill') {
-    const hut = new THREE.Group();
-    const walls = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.02, 0.03), mat('stone'));
-    walls.position.y = 0.01;
-    hut.add(walls);
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.024, 0.016, 4), mat('roof'));
-    roof.rotation.y = Math.PI / 4;
-    roof.position.y = 0.028;
-    hut.add(roof);
-    const wm = windowMat();
-    for (const z of [-0.007, 0.007]) {
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(0.006, 0.008), wm);
-      win.position.set(0.0131, 0.012, z);
-      win.rotation.y = Math.PI / 2;
-      hut.add(win);
-    }
-    const door = new THREE.Mesh(new THREE.PlaneGeometry(0.008, 0.012), wm);
-    door.position.set(0, 0.006, 0.0151);
-    hut.add(door);
-    hut.position.x = 0.016;
-    group.add(hut);
-    parts.hut = hut;
-    parts.windows = wm;
-    // Water wheel straddling the pipe.
-    const wheel = new THREE.Group();
-    const hubM = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.012, 8), mat('woodDark'));
-    hubM.rotation.z = Math.PI / 2;
-    wheel.add(hubM);
-    for (let k = 0; k < 10; k++) {
-      const paddle = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.0024, 0.011), mat('paleWood'));
-      const a = (k / 10) * Math.PI * 2;
-      paddle.position.set(0, Math.sin(a) * 0.03, Math.cos(a) * 0.03);
-      paddle.rotation.x = -a;
-      wheel.add(paddle);
-    }
-    for (const sx of [-0.006, 0.006]) {
-      const rimG = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.002, 6, 32), mat('paleWood'));
-      rimG.rotation.y = Math.PI / 2;
-      rimG.position.x = sx;
-      wheel.add(rimG);
-    }
-    wheel.position.set(-0.012, PIPE_Y + 0.018, 0);
-    group.add(wheel);
-    parts.millWheel = wheel;
-    // Copper collar where the pipe enters the wheel housing.
-    const collar = new THREE.CylinderGeometry(PIPE_R * 1.3, PIPE_R * 1.3, 0.02, 14);
-    collar.rotateX(Math.PI / 2);
-    collar.translate(0, PIPE_Y, 0);
-    copperGeoms.push(collar);
+    const hut=new THREE.Group();hut.name='blender-mill-house';
+    for(const [name,material] of [['millWalls','plaster'],['millStone','limestone'],['millTimber','woodDark'],['millRoof','roof'],['millRoofSeams','roofEdge'],['millDoor','tealEnamel']])hut.add(authoredMesh(name,mat(material)));
+    const wm=windowMat();hut.add(authoredMesh('millWindows',wm));
+    hut.position.x=.016;group.add(hut);parts.hut=hut;parts.windows=wm;
+    const wheel=new THREE.Group();wheel.name='blender-mill-wheel';wheel.scale.setScalar(.9);
+    wheel.add(authoredMesh('wheelWood',mat('paleWood')),authoredMesh('wheelHub',mat('brass')));
+    wheel.position.set(-.012,PIPE_Y+.012,0);group.add(wheel);parts.millWheel=wheel;
+    const collar=new THREE.CylinderGeometry(PIPE_R*1.15,PIPE_R*1.15,.017,12,1,true);
+    collar.rotateX(Math.PI/2);collar.translate(0,PIPE_Y,0);copperGeoms.push(collar);
   }
   if (glassGeoms.length) {
     const key = type + ':glass';

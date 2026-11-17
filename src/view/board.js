@@ -37,7 +37,7 @@ export class BoardView {
     this.gauges = new Map(); // cell index -> gauge
     this.buttons = [];
     this.knobs = [];
-    this.hud = new CanvasPanel(0.34, 0.078, 1200);
+    this.hud = new CanvasPanel(0.28, 0.060, 1200);
     this.hud.mesh.renderOrder = 3;
     this.root.add(this.hud.mesh);
     this.water = new WaterView(this.root);
@@ -179,9 +179,23 @@ export class BoardView {
     });
     // HUD behind the board, tilted toward the player.
     // Bring the placard in front of the gantry in the seated emulator view.
-    this.hud.mesh.position.set(0, 0.15, -D / 2 + 0.015);
+    this.hud.mesh.position.set(0, 0.18, -D / 2 - 0.008);
     this.hud.mesh.rotation.set(-0.25, 0, 0);
     this.hud.last = '';
+    // Two slim hanging straps tie the enamel sign back to the gantry.
+    // Instanced as one draw, decorative only: no interaction targets.
+    const straps = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0011, 0.0011, 1, 6), mat('brass'), 2);
+    const strapMatrix = new THREE.Matrix4();
+    for (const [i, x] of [-0.125, 0.125].entries()) {
+      const start = new THREE.Vector3(x, 0.209, -D / 2 - 0.015);
+      const end = new THREE.Vector3(x, 0.195, -0.29);
+      const direction = end.clone().sub(start);
+      strapMatrix.compose(start.clone().add(end).multiplyScalar(0.5),
+        new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize()),
+        new THREE.Vector3(1, direction.length(), 1));
+      straps.setMatrixAt(i, strapMatrix);
+    }
+    this.content.add(straps);
     // Ghost hint.
     this.ghost = null;
     this.sync();
@@ -233,7 +247,10 @@ export class BoardView {
     const st = this.st;
     const g = new THREE.Group();
     const c = this.cellCenter(Math.floor(i / st.cols), i % st.cols);
-    g.position.set(c.x + 0.012, 0.090, c.z + 0.008); // high enough that the pill under the dial clears the mill wheel
+    const meter = this.gauges.size;
+    // Alternate small lateral offsets so meters in adjacent rows do not cover each other.
+    g.position.set(c.x + (meter % 2 ? 0.025 : -0.009), 0.092, c.z + 0.008);
+    g.scale.setScalar(0.76);
     const back = new THREE.Mesh(new THREE.CircleGeometry(0.019, 28), new THREE.MeshBasicMaterial({ color: 0xfff8ec }));
     g.add(back);
     const rim = new THREE.Mesh(new THREE.RingGeometry(0.019, 0.021, 28), new THREE.MeshBasicMaterial({ color: COLORS.copper }));
@@ -256,7 +273,7 @@ export class BoardView {
     needle.position.z = 0.0009;
     g.add(needle);
     // Status pill hangs just under the dial rim, so it moves with the gauge and never floats into lamps.
-    const label = new CanvasPanel(0.056, 0.0125, 640);
+    const label = new CanvasPanel(0.052, 0.012, 640);
     label.mesh.position.set(0, -0.0285, 0.0012);
     label.material.depthTest = false; label.mesh.renderOrder = 4; // always readable, even past the mill wheel
     g.add(label.mesh);
@@ -270,16 +287,57 @@ export class BoardView {
 
   setHud(key, data) {
     this.hud.draw(key, (g, w, h) => {
-      g.fillStyle = 'rgba(15,28,39,0.97)';
-      roundRect(g, 6, 6, w - 12, h - 12, 12); g.fill();
-      g.strokeStyle = '#c7a568'; g.lineWidth = 3; g.stroke();
-      g.fillStyle = '#f3e6cc'; g.textBaseline = 'top'; g.textAlign = 'left';
-      g.font = '600 54px Georgia, serif';
-      g.fillText(data.title, 40, 30);
-      if (data.right) { g.textAlign = 'right'; g.font = font(48, 700); g.fillStyle = data.rightColor || '#c7a568'; g.fillText(data.right, w - 40, 34); g.textAlign = 'left'; }
-      g.fillStyle = '#d1dfdf'; g.font = font(34, 500);
-      wrapText(g, data.body || '', 40, 100, w - 80, 41);
-      if (data.footer) { g.font = font(28, 600); g.fillStyle = '#adbec6'; g.fillText(data.footer, 40, h - 50); }
+      // An engraved enamel instrument placard, not a large floating chat bubble.
+      g.fillStyle = '#142d38';
+      roundRect(g, 4, 4, w - 8, h - 8, 9); g.fill();
+      g.strokeStyle = '#bc9b66'; g.lineWidth = 3; g.stroke();
+      g.strokeStyle = '#53605b'; g.lineWidth = 1;
+      roundRect(g, 15, 15, w - 30, h - 30, 3); g.stroke();
+      for (const x of [27, w - 27]) {
+        g.fillStyle = '#bda77c'; g.beginPath(); g.arc(x, 28, 4, 0, Math.PI * 2); g.fill();
+      }
+      g.textBaseline = 'top'; g.textAlign = 'left';
+      g.fillStyle = '#ecdfc2';
+      const rightW = data.right ? 350 : 0;
+      let titlePx = 58;
+      g.font = `500 ${titlePx}px Georgia, serif`;
+      while (g.measureText(data.title).width > w - 92 - rightW && titlePx > 28) {
+        titlePx -= 2; g.font = `500 ${titlePx}px Georgia, serif`;
+      }
+      g.fillText(data.title, 42, 30);
+      if (data.right) {
+        g.textAlign = 'right'; g.font = font(40, 600);
+        g.fillStyle = data.rightColor || '#d9b77c';
+        g.fillText(data.right, w - 42, 39); g.textAlign = 'left';
+      }
+      g.strokeStyle = '#61706c'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(42, 90); g.lineTo(w - 42, 90); g.stroke();
+      // Preserve guidance, but remove verbose repetition in the common leak state.
+      const body = (data.body || '').replace('A pipe end is leaking (pulsing warning rings). Water must only reach the sea.',
+        'Seal the flashing leak. Route water to the sea.').replace(' pipe ends are leaking (pulsing warning rings). Water must only reach the sea.',
+        ' leaks: seal the flashing ends. Route water to the sea.');
+      let bodyPx = 42;
+      const lineCount = () => {
+        let lines = 1, line = '';
+        for (const word of body.split(' ')) {
+          const next = line ? line + ' ' + word : word;
+          if (line && g.measureText(next).width > w - 84) { lines++; line = word; } else line = next;
+        }
+        return lines;
+      };
+      g.font = font(bodyPx, 500);
+      while (lineCount() > 2 && bodyPx > 28) { bodyPx -= 2; g.font = font(bodyPx, 500); }
+      g.fillStyle = '#e4eee8';
+      wrapText(g, body, 42, 108, w - 84, bodyPx + 5);
+      if (data.footer) {
+        const footer = data.footer === 'Pinch to pick up · twist to turn · quick pinch to rotate'
+          ? 'Pinch: pick up · twist / quick pinch: rotate' : data.footer;
+        let footerPx = 32; g.font = font(footerPx, 500);
+        while (g.measureText(footer).width > w - 84 && footerPx > 18) {
+          footerPx--; g.font = font(footerPx, 500);
+        }
+        g.fillStyle = '#aebdb7'; g.fillText(footer, 42, h - 43);
+      }
     });
   }
 
@@ -341,10 +399,11 @@ export class BoardView {
         gauge.frac += (m.frac - gauge.frac) * Math.min(1, dt * 8);
         gauge.needle.rotation.z = GAUGE_A0 - gauge.frac * GAUGE_SWEEP + (m.status === 'high' ? Math.sin(this.time * 50) * 0.04 : 0);
         const dry = m.flow < 0.02;
-        const txt = dry ? '○ DRY' : m.status === 'ok' ? '✓ JUST RIGHT' : m.status === 'low' ? '▼ TOO SLOW' : '▲ TOO FAST';
+        const txt = dry ? '○ DRY' : m.status === 'ok' ? '✓ BALANCED' : m.status === 'low' ? '↓ LOW FLOW' : '↑ HIGH FLOW';
         const color = dry ? '#b9c5cc' : m.status === 'ok' ? '#8ce8ba' : m.status === 'low' ? '#abd7ff' : '#ffb078';
         gauge.label.draw(txt, (g, w, h) => {
-          g.fillStyle = 'rgba(15,28,39,0.97)'; roundRect(g, 3, 3, w - 6, h - 6, h / 2 - 3); g.fill();
+          g.fillStyle = '#132c37'; roundRect(g, 3, 3, w - 6, h - 6, 10); g.fill();
+          g.strokeStyle = '#987c50'; g.lineWidth = 2; g.stroke();
           let px = 92; g.font = font(px, 800);
           while (g.measureText(txt).width > w - 40 && px > 40) { px -= 4; g.font = font(px, 800); }
           g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle';

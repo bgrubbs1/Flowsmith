@@ -59,8 +59,8 @@ export function flowingWaterMaterial(phase = { value: 0 }) {
       float fsAlong = vUv.y * 3.0 + uPhase;
       float fsBand = sin(fsAlong * 6.2832 + sin(vUv.x * 6.2832 * 2.0 + uTime * 3.0) * 0.6) * 0.5 + 0.5;
       float fsFoam = smoothstep(0.86, 1.0, sin(fsAlong * 6.2832 * 2.0 + vUv.x * 9.0) * 0.5 + 0.5);
-      vec3 fsDeep = vec3(0.03, 0.27, 0.62), fsBright = vec3(0.30, 0.85, 1.0);
-      diffuseColor.rgb = mix(fsDeep, fsBright, fsBand * 0.75) + fsFoam * 0.5;`).replace(
+      vec3 fsDeep = vec3(0.025, 0.20, 0.25), fsBright = vec3(0.18, 0.65, 0.72);
+      diffuseColor.rgb = mix(fsDeep, fsBright, fsBand * 0.75) + fsFoam * 0.18;`).replace(
       '#include <emissivemap_fragment>',
       `#include <emissivemap_fragment>
       float fsRim = pow(1.0 - abs(dot(normalize(vViewPosition), normal)), 2.0);
@@ -73,7 +73,7 @@ export function flowingWaterMaterial(phase = { value: 0 }) {
 // ---------------------------------------------------------------- the sea at the drain
 // World-space ripples (so neighbouring sea tiles join up), sparkle on wave crests and a lighter shallow edge.
 export function seaMaterial() {
-  const m = new THREE.MeshStandardMaterial({ color: 0x1b6fd0, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.94 });
+  const m = new THREE.MeshStandardMaterial({ color: 0x357e89, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.84 });
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = LOOK.time;
     shader.vertexShader = 'varying vec3 vFsWorld;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvFsWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
@@ -88,7 +88,7 @@ export function seaMaterial() {
       float fsWave = sin(fsP.x + fsT * 1.7) * sin(fsP.y * 1.1 - fsT * 1.3);`).replace(
       '#include <emissivemap_fragment>',
       `#include <emissivemap_fragment>
-      totalEmissiveRadiance += vec3(0.05, 0.25, 0.45) * (0.4 + 0.6 * smoothstep(0.55, 0.95, fsWave)) + vec3(0.7, 0.9, 1.0) * smoothstep(0.92, 0.99, fsWave) * 0.6;`);
+      totalEmissiveRadiance += vec3(0.02, 0.10, 0.12) * (0.4 + 0.6 * smoothstep(0.55, 0.95, fsWave)) + vec3(0.7, 0.9, 1.0) * smoothstep(0.92, 0.99, fsWave) * 0.22;`);
   };
   m.customProgramCacheKey = () => 'fs-sea';
   return m;
@@ -96,7 +96,7 @@ export function seaMaterial() {
 
 // ---------------------------------------------------------------- dusk sky dome
 // Indigo zenith, an amber band at the horizon, a few stars and a distant ridge line. Unlit and fog-free.
-export const HORIZON = new THREE.Color(0x2a2c3d);
+export const HORIZON = new THREE.Color(0x536574);
 export function skyDome(radius = 24) {
   const m = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
@@ -106,7 +106,7 @@ export function skyDome(radius = 24) {
       float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       void main(){
         float e = vDir.y; float az = atan(vDir.z, vDir.x);
-        vec3 zenith = vec3(0.035, 0.05, 0.13), mid = vec3(0.13, 0.12, 0.26), glow = vec3(0.85, 0.42, 0.20), ground = vec3(0.04, 0.05, 0.07);
+        vec3 zenith = vec3(0.035, 0.05, 0.13), mid = vec3(0.13, 0.12, 0.26), glow = vec3(0.85, 0.42, 0.20), ground = vec3(0.08, 0.11, 0.15);
         float warm = 0.55 + 0.45 * cos(az + 1.2);
         vec3 col = mix(mid, zenith, smoothstep(0.05, 0.6, e));
         col = mix(col, glow * (0.45 + 0.55 * warm) * (1.0 + 0.5 * uLit), exp(-max(e, 0.0) * 14.0) * 0.9);
@@ -118,7 +118,7 @@ export function skyDome(radius = 24) {
         float star = step(0.985, hash(cell)) * smoothstep(0.45, 0.0, length(fract(sp) - 0.5)) * smoothstep(0.12, 0.4, e);
         col += vec3(0.9, 0.92, 1.0) * star * (0.6 + 0.4 * sin(uTime * 2.0 + hash(cell) * 30.0)) * (1.0 + 0.6 * uLit);
         float ridge = 0.035 + 0.03 * sin(az * 3.0 + 0.5) + 0.018 * sin(az * 7.0 + 2.0) + 0.008 * sin(az * 19.0);
-        if (e < ridge) col = mix(vec3(0.05, 0.055, 0.08), vec3(0.09, 0.08, 0.11), smoothstep(ridge - 0.05, ridge, e));
+        if (e < ridge) col = mix(vec3(0.09, 0.13, 0.17), vec3(0.15, 0.18, 0.22), smoothstep(ridge - 0.05, ridge, e));
         if (e < 0.0) col = mix(col, ground, smoothstep(0.0, -0.08, e));
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
